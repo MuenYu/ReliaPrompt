@@ -4,7 +4,7 @@ const ICONS = {
         <path d="M2 17l10 5 10-5"/>
         <path d="M2 12l10 5 10-5"/>
     </svg>`,
-    gear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    setup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>`,
@@ -22,6 +22,12 @@ const ICONS = {
         <line x1="16" y1="13" x2="8" y2="13"/>
         <line x1="16" y1="17" x2="8" y2="17"/>
         <polyline points="10 9 9 9 8 9"/>
+    </svg>`,
+    chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+    </svg>`,
+    chevronDown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
     </svg>`,
 };
 
@@ -59,6 +65,11 @@ function setSelectedPromptId(id) {
     window.history.replaceState({}, "", url);
 }
 
+// Track which prompt groups are expanded
+const expandedGroups = new Set();
+// Cache for prompt versions
+const versionsCache = {};
+
 async function loadPromptSidebar() {
     const sidebarList = document.getElementById("sidebar-prompts");
     if (!sidebarList) return;
@@ -77,42 +88,57 @@ async function loadPromptSidebar() {
             return;
         }
 
+        // Check if selected prompt's group should be auto-expanded
+        if (selectedId) {
+            const selectedPrompt = prompts.find((p) => p.id === selectedId);
+            if (selectedPrompt) {
+                expandedGroups.add(selectedPrompt.name);
+            }
+        }
+
         sidebarList.innerHTML = prompts
-            .map(
-                (p) => `
-            <div class="sidebar-item ${p.id === selectedId ? "active" : ""}" data-id="${p.id}" data-name="${escapeHtml(p.name)}">
-                <div class="sidebar-item-content">
-                    <div class="sidebar-item-name">
-                        ${escapeHtml(p.name)}
-                        <span class="badge badge-version">v${p.version}</span>
+            .map((p) => {
+                const isExpanded = expandedGroups.has(p.name);
+                const hasVersions = p.version > 1;
+                return `
+                    <div class="sidebar-group ${isExpanded ? "expanded" : ""}" data-name="${escapeHtml(p.name)}">
+                        <div class="sidebar-group-header" data-name="${escapeHtml(p.name)}">
+                            ${hasVersions ? `<span class="sidebar-expand-icon">${isExpanded ? ICONS.chevronDown : ICONS.chevronRight}</span>` : '<span class="sidebar-expand-icon-placeholder"></span>'}
+                            <div class="sidebar-group-info">
+                                <div class="sidebar-group-name">${escapeHtml(p.name)}</div>
+                                <div class="sidebar-group-meta">${p.version} version${p.version > 1 ? "s" : ""}</div>
+                            </div>
+                            <div class="sidebar-group-actions">
+                                <button class="sidebar-action-btn edit" data-id="${p.id}" data-name="${escapeHtml(p.name)}" title="Edit (new version)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                                <button class="sidebar-action-btn delete" data-id="${p.id}" data-name="${escapeHtml(p.name)}" title="Delete all versions">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="sidebar-versions" id="versions-${escapeHtml(p.name).replace(/[^a-zA-Z0-9]/g, "_")}">
+                            ${isExpanded && versionsCache[p.name] ? renderVersionsList(versionsCache[p.name], selectedId) : ""}
+                        </div>
                     </div>
-                    <div class="sidebar-item-meta">${new Date(p.created_at).toLocaleDateString()}</div>
-                </div>
-                <div class="sidebar-item-actions">
-                    <button class="sidebar-action-btn edit" data-id="${p.id}" data-name="${escapeHtml(p.name)}" title="Edit">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                    </button>
-                    <button class="sidebar-action-btn delete" data-id="${p.id}" data-name="${escapeHtml(p.name)}" title="Delete">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        `
-            )
+                `;
+            })
             .join("");
 
-        // Add click handlers for selecting prompts
-        sidebarList.querySelectorAll(".sidebar-item-content").forEach((content) => {
-            content.addEventListener("click", () => {
-                const item = content.closest(".sidebar-item");
-                const id = parseInt(item.dataset.id, 10);
-                selectPrompt(id, item.dataset.name);
+        // Add click handlers for group headers (expand/collapse)
+        sidebarList.querySelectorAll(".sidebar-group-header").forEach((header) => {
+            header.addEventListener("click", async (e) => {
+                // Don't toggle if clicking on action buttons
+                if (e.target.closest(".sidebar-action-btn")) return;
+                
+                const name = header.dataset.name;
+                await toggleVersionsExpand(name);
             });
         });
 
@@ -134,6 +160,13 @@ async function loadPromptSidebar() {
             });
         });
 
+        // If expanded, load and render versions
+        for (const name of expandedGroups) {
+            if (!versionsCache[name]) {
+                await loadVersionsForPrompt(name);
+            }
+        }
+
         window.dispatchEvent(new CustomEvent("promptsLoaded", { detail: { prompts, selectedId } }));
     } catch (error) {
         console.error("Error loading prompts:", error);
@@ -141,12 +174,115 @@ async function loadPromptSidebar() {
     }
 }
 
+function formatVersionDate(dateStr) {
+    const d = new Date(dateStr);
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${yy}.${mm}.${dd} - ${hh}:${min}:${ss}`;
+}
+
+function renderVersionsList(versions, selectedId) {
+    return versions
+        .map(
+            (v) => `
+            <div class="sidebar-version-item ${v.id === selectedId ? "active" : ""}" data-id="${v.id}" data-name="${escapeHtml(v.name)}" data-version="${v.version}">
+                <div class="sidebar-version-info">
+                    <span class="badge badge-version">v${v.version}</span>
+                    <span class="sidebar-version-date">${formatVersionDate(v.createdAt || v.created_at)}</span>
+                </div>
+                <button class="sidebar-action-btn delete version-delete" data-id="${v.id}" data-name="${escapeHtml(v.name)}" data-version="${v.version}" title="Delete this version">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                </button>
+            </div>
+        `
+        )
+        .join("");
+}
+
+async function loadVersionsForPrompt(name) {
+    try {
+        const res = await fetch(`/api/prompts/${encodeURIComponent(name)}/versions`);
+        const versions = await res.json();
+        versionsCache[name] = versions;
+        return versions;
+    } catch (error) {
+        console.error("Error loading versions:", error);
+        return [];
+    }
+}
+
+async function toggleVersionsExpand(name) {
+    const group = document.querySelector(`.sidebar-group[data-name="${CSS.escape(name)}"]`);
+    if (!group) return;
+
+    const isExpanded = expandedGroups.has(name);
+    const versionsContainer = group.querySelector(".sidebar-versions");
+    const expandIcon = group.querySelector(".sidebar-expand-icon");
+
+    if (isExpanded) {
+        // Collapse
+        expandedGroups.delete(name);
+        group.classList.remove("expanded");
+        if (expandIcon) expandIcon.innerHTML = ICONS.chevronRight;
+        versionsContainer.innerHTML = "";
+    } else {
+        // Expand
+        expandedGroups.add(name);
+        group.classList.add("expanded");
+        if (expandIcon) expandIcon.innerHTML = ICONS.chevronDown;
+
+        // Load versions if not cached
+        if (!versionsCache[name]) {
+            versionsContainer.innerHTML = '<div class="sidebar-versions-loading">Loading...</div>';
+            await loadVersionsForPrompt(name);
+        }
+
+        const selectedId = getSelectedPromptId();
+        versionsContainer.innerHTML = renderVersionsList(versionsCache[name], selectedId);
+
+        // Add click handlers for version items
+        versionsContainer.querySelectorAll(".sidebar-version-item").forEach((item) => {
+            item.addEventListener("click", (e) => {
+                // Don't select if clicking delete button
+                if (e.target.closest(".version-delete")) return;
+                const id = parseInt(item.dataset.id, 10);
+                const itemName = item.dataset.name;
+                selectPrompt(id, itemName);
+            });
+        });
+
+        // Add click handlers for version delete buttons
+        versionsContainer.querySelectorAll(".version-delete").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id, 10);
+                const name = btn.dataset.name;
+                const version = parseInt(btn.dataset.version, 10);
+                deleteVersionFromSidebar(id, name, version);
+            });
+        });
+    }
+}
+
 function selectPrompt(id, name) {
     setSelectedPromptId(id);
 
-    document.querySelectorAll(".sidebar-item").forEach((item) => {
+    // Update active state for version items
+    document.querySelectorAll(".sidebar-version-item").forEach((item) => {
         item.classList.toggle("active", parseInt(item.dataset.id, 10) === id);
     });
+
+    // Expand the group for the selected prompt if not already
+    if (name && !expandedGroups.has(name)) {
+        toggleVersionsExpand(name);
+    }
 
     window.dispatchEvent(new CustomEvent("promptSelected", { detail: { id, name } }));
 }
@@ -247,12 +383,18 @@ async function saveEditedPrompt(e) {
         const res = await fetch("/api/prompts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: editingPromptName, content }),
+            body: JSON.stringify({ 
+                name: editingPromptName, 
+                content,
+                parentVersionId: editingPromptId 
+            }),
         });
 
         if (res.ok) {
             const prompt = await res.json();
             closeEditPromptModal();
+            // Clear versions cache for this prompt name so it reloads
+            delete versionsCache[prompt.name];
             await loadPromptSidebar();
             selectPrompt(prompt.id, prompt.name);
             showAppMessage("New version saved!", "success");
@@ -275,7 +417,7 @@ async function deletePromptFromSidebar(id, name) {
     }
 
     try {
-        const res = await fetch(`/api/prompts/name/${encodeURIComponent(name)}`, {
+        const res = await fetch(`/api/prompts/${id}/all-versions`, {
             method: "DELETE",
         });
 
@@ -290,6 +432,10 @@ async function deletePromptFromSidebar(id, name) {
                 );
             }
 
+            // Clear cache for this prompt
+            delete versionsCache[name];
+            expandedGroups.delete(name);
+
             await loadPromptSidebar();
         } else {
             const error = await res.json();
@@ -297,6 +443,44 @@ async function deletePromptFromSidebar(id, name) {
         }
     } catch (error) {
         showAppMessage("Error deleting prompt", "error");
+    }
+}
+
+async function deleteVersionFromSidebar(id, name, version) {
+    if (
+        !confirm(
+            `Delete version ${version} of "${name}"? This will also delete its test cases. This cannot be undone.`
+        )
+    ) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/prompts/${id}`, {
+            method: "DELETE",
+        });
+
+        if (res.ok) {
+            showAppMessage(`Version ${version} deleted`, "success");
+
+            const selectedId = getSelectedPromptId();
+            if (selectedId === id) {
+                setSelectedPromptId(null);
+                window.dispatchEvent(
+                    new CustomEvent("promptSelected", { detail: { id: null, name: null } })
+                );
+            }
+
+            // Clear cache for this prompt so it reloads
+            delete versionsCache[name];
+
+            await loadPromptSidebar();
+        } else {
+            const error = await res.json();
+            showAppMessage(error.error || "Failed to delete version", "error");
+        }
+    } catch (error) {
+        showAppMessage("Error deleting version", "error");
     }
 }
 
@@ -397,9 +581,9 @@ function escapeHtml(text) {
 }
 
 function initAppLayout() {
-    const gearBtn = document.getElementById("gear-btn");
-    if (gearBtn) {
-        gearBtn.addEventListener("click", openConfigModal);
+    const setupBtn = document.getElementById("setup-btn");
+    if (setupBtn) {
+        setupBtn.addEventListener("click", openConfigModal);
     }
 
     const configModalOverlay = document.getElementById("config-modal");
@@ -501,8 +685,8 @@ function getNavbarHtml() {
                 ${navLinks}
             </div>
             <div class="navbar-actions">
-                <button class="btn-icon" id="gear-btn" title="Configuration">
-                    ${ICONS.gear}
+                <button class="btn-text" id="setup-btn" title="Setup">
+                    Setup
                 </button>
             </div>
         </nav>
@@ -637,6 +821,7 @@ window.AppUtils = {
     openEditPromptModal,
     closeEditPromptModal,
     deletePromptFromSidebar,
+    deleteVersionFromSidebar,
     ICONS,
     getNavbarHtml,
     getSidebarHtml,

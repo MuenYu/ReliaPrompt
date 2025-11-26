@@ -23,7 +23,7 @@
     --radius-md: 8px;
     --radius-lg: 12px;
     --navbar-height: 60px;
-    --sidebar-width: 280px;
+    --sidebar-width: 364px;
     --font-mono: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
 }
 
@@ -143,6 +143,27 @@ body {
     height: 20px;
 }
 
+.btn-text {
+    height: 36px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-text:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
 .sidebar {
     width: var(--sidebar-width);
     background: var(--color-sidebar);
@@ -198,6 +219,150 @@ body {
     padding: 12px;
 }
 
+/* Sidebar Group Styles */
+.sidebar-group {
+    margin-bottom: 4px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.sidebar-group-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+}
+
+.sidebar-group-header:hover {
+    background: var(--color-sidebar-hover);
+    color: #fff;
+}
+
+.sidebar-group-header:hover .sidebar-group-actions {
+    opacity: 1;
+}
+
+.sidebar-expand-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-right: 8px;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-expand-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.sidebar-expand-icon-placeholder {
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.sidebar-group-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-group-name {
+    font-size: 14px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-group-meta {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 2px;
+}
+
+.sidebar-group-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+/* Versions List */
+.sidebar-versions {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease-out;
+}
+
+.sidebar-group.expanded .sidebar-versions {
+    max-height: 500px;
+}
+
+.sidebar-versions-loading {
+    padding: 8px 16px 8px 40px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-version-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 8px 40px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-left: 2px solid transparent;
+    margin-left: 12px;
+}
+
+.sidebar-version-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar-version-item .version-delete {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
+}
+
+.sidebar-version-item:hover .version-delete {
+    opacity: 1;
+}
+
+.sidebar-version-item.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-accent);
+    border-left-color: var(--color-accent);
+}
+
+.sidebar-version-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-version-date {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-version-item.active .sidebar-version-date {
+    color: rgba(16, 185, 129, 0.7);
+}
+
+/* Legacy sidebar item styles (for backwards compatibility) */
 .sidebar-item {
     display: flex;
     align-items: center;

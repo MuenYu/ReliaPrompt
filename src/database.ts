@@ -48,30 +48,44 @@ export function createPrompt(name: string, content: string, parentVersionId?: nu
     return withSave(() => {
         const db = getDb();
         let version = 1;
+        let promptGroupId: number | null = null;
 
         if (parentVersionId) {
             const parent = db
-                .select({ version: prompts.version })
+                .select({ version: prompts.version, promptGroupId: prompts.promptGroupId })
                 .from(prompts)
                 .where(eq(prompts.id, parentVersionId))
                 .get();
             if (parent) {
                 version = parent.version + 1;
+                promptGroupId = parent.promptGroupId;
             }
         }
 
         const createdAt = new Date().toISOString();
-        return db
+        const result = db
             .insert(prompts)
             .values({
                 name,
                 content,
                 version,
                 parentVersionId: parentVersionId ?? null,
+                promptGroupId,
                 createdAt,
             })
             .returning()
             .get();
+
+        // If this is a new prompt (not a version), set promptGroupId to its own ID
+        if (!parentVersionId) {
+            db.update(prompts)
+                .set({ promptGroupId: result.id })
+                .where(eq(prompts.id, result.id))
+                .run();
+            result.promptGroupId = result.id;
+        }
+
+        return result;
     });
 }
 
@@ -87,19 +101,33 @@ export function deletePrompt(id: number): void {
     });
 }
 
-export function deletePromptByName(name: string): void {
+export function deleteAllVersionsOfPrompt(id: number): void {
     withSave(() => {
         const db = getDb();
+        // First, get the prompt to find its promptGroupId
+        const prompt = db.select().from(prompts).where(eq(prompts.id, id)).get();
+        if (!prompt) {
+            throw new Error("Prompt not found");
+        }
+
+        if (!prompt.promptGroupId) {
+            // Fallback: just delete this single prompt
+            db.delete(testCases).where(eq(testCases.promptId, id)).run();
+            db.delete(prompts).where(eq(prompts.id, id)).run();
+            return;
+        }
+
+        // Get all prompt IDs with the same promptGroupId
         const promptIds = db
             .select({ id: prompts.id })
             .from(prompts)
-            .where(eq(prompts.name, name))
+            .where(eq(prompts.promptGroupId, prompt.promptGroupId))
             .all()
             .map((p) => p.id);
 
         if (promptIds.length > 0) {
             db.delete(testCases).where(inArray(testCases.promptId, promptIds)).run();
-            db.delete(prompts).where(eq(prompts.name, name)).run();
+            db.delete(prompts).where(inArray(prompts.id, promptIds)).run();
         }
     });
 }
@@ -111,16 +139,27 @@ export function getLatestPrompts(): Prompt[] {
             `
             SELECT p1.* FROM prompts p1
             INNER JOIN (
-                SELECT name, MAX(version) as max_version
+                SELECT prompt_group_id, MAX(version) as max_version
                 FROM prompts
-                GROUP BY name
-            ) p2 ON p1.name = p2.name AND p1.version = p2.max_version
+                WHERE prompt_group_id IS NOT NULL
+                GROUP BY prompt_group_id
+            ) p2 ON p1.prompt_group_id = p2.prompt_group_id AND p1.version = p2.max_version
             ORDER BY p1.created_at DESC
         `
         )
         .all() as Prompt[];
 }
 
+export function getPromptVersionsByGroupId(groupId: number): Prompt[] {
+    return getDb()
+        .select()
+        .from(prompts)
+        .where(eq(prompts.promptGroupId, groupId))
+        .orderBy(desc(prompts.version))
+        .all();
+}
+
+// Legacy function for backward compatibility - fetches versions by name
 export function getPromptVersions(name: string): Prompt[] {
     return getDb()
         .select()
@@ -131,7 +170,7 @@ export function getPromptVersions(name: string): Prompt[] {
 }
 
 export function getAllPrompts(): Prompt[] {
-    return getDb().select().from(prompts).orderBy(prompts.name, desc(prompts.version)).all();
+    return getDb().select().from(prompts).orderBy(prompts.promptGroupId, desc(prompts.version)).all();
 }
 
 export function createTestCase(promptId: number, input: string, expectedOutput: string) {
@@ -163,6 +202,21 @@ export function getTestCasesForPrompt(promptId: number): TestCase[] {
         .all();
 }
 
+export function getTestCasesForPromptGroupId(groupId: number): TestCase[] {
+    const sqlDb = getSqlDb();
+    return sqlDb
+        .query(
+            `
+            SELECT tc.* FROM test_cases tc
+            INNER JOIN prompts p ON tc.prompt_id = p.id
+            WHERE p.prompt_group_id = ?
+            ORDER BY tc.created_at
+        `
+        )
+        .all(groupId) as TestCase[];
+}
+
+// Legacy function for backward compatibility
 export function getTestCasesForPromptName(promptName: string): TestCase[] {
     const sqlDb = getSqlDb();
     return sqlDb

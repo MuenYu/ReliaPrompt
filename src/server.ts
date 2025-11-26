@@ -9,10 +9,11 @@ import {
     createPrompt,
     getLatestPrompts,
     getPromptVersions,
+    getPromptVersionsByGroupId,
     getPromptById,
     getAllPrompts,
     deletePrompt,
-    deletePromptByName,
+    deleteAllVersionsOfPrompt,
     createTestCase,
     getTestCasesForPrompt,
     deleteTestCase,
@@ -169,12 +170,17 @@ app.delete("/api/prompts/:id", (req, res) => {
     }
 });
 
-app.delete("/api/prompts/name/:name", (req, res) => {
+app.delete("/api/prompts/:id/all-versions", (req, res) => {
     try {
-        deletePromptByName(req.params.name);
+        const id = parseInt(req.params.id, 10);
+        deleteAllVersionsOfPrompt(id);
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        const errorMessage = (error as Error).message;
+        if (errorMessage === "Prompt not found") {
+            return res.status(404).json({ error: errorMessage });
+        }
+        res.status(500).json({ error: errorMessage });
     }
 });
 

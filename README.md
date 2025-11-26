@@ -105,7 +105,7 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 - `GET /api/prompts/:id` - Get a specific prompt by ID
 - `GET /api/prompts/:name/versions` - Get version history by name
 - `DELETE /api/prompts/:id` - Delete a specific prompt version
-- `DELETE /api/prompts/name/:name` - Delete all versions of a prompt
+- `DELETE /api/prompts/:id/all-versions` - Delete all versions of a prompt (by ID)
 
 ### Test Cases
 

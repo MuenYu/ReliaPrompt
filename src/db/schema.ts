@@ -11,6 +11,7 @@ export const prompts = sqliteTable("prompts", {
     content: text("content").notNull(),
     version: integer("version").notNull().default(1),
     parentVersionId: integer("parent_version_id"),
+    promptGroupId: integer("prompt_group_id"),
     createdAt: text("created_at").notNull(),
 });
 
