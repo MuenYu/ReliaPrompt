@@ -521,7 +521,7 @@
                             AppUtils.showAppMessage(status.error || "Improvement failed", "error");
                         }
                     } catch (error) {
-                        console.error('Error polling status:', error);
+                        AppUtils.showAppMessage("Error checking improvement status", "error");
                     }
                 }, 2000);
             }

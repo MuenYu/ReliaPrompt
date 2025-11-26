@@ -225,7 +225,7 @@ async function loadVersionsForPrompt(groupId, promptId) {
         versionsCache[groupId] = versions;
         return versions;
     } catch (error) {
-        console.error("Error loading versions:", error);
+        showAppMessage("Error loading prompt versions", "error");
         return [];
     }
 }
@@ -254,6 +254,13 @@ async function toggleVersionsExpand(groupId, promptId) {
         if (!versionsCache[groupId]) {
             versionsContainer.innerHTML = '<div class="sidebar-versions-loading">Loading...</div>';
             await loadVersionsForPrompt(groupId, promptId);
+        }
+
+        // Auto-select the latest version (first in the list, sorted by version desc)
+        const versions = versionsCache[groupId];
+        if (versions && versions.length > 0) {
+            const latestVersion = versions[0];
+            selectPrompt(latestVersion.id, latestVersion.name, groupId);
         }
 
         const selectedId = getSelectedPromptId();
@@ -552,7 +559,7 @@ async function loadConfigStatus() {
             if (regionInput) regionInput.value = config.bedrock_region;
         }
     } catch (error) {
-        console.error("Error loading config:", error);
+        showAppMessage("Error loading configuration", "error");
     }
 }
 
