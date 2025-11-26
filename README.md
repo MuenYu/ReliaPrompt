@@ -1,0 +1,144 @@
+# LLM Prompt Testing Tool
+
+A web application for testing agentic server-side prompts against multiple LLMs (OpenAI, AWS Bedrock, Grok) with automated scoring and prompt improvement capabilities.
+
+## Features
+
+- **Multi-LLM Testing**: Test prompts against OpenAI (GPT-4o), AWS Bedrock (Claude 3 Sonnet), and Grok
+- **Parallel Execution**: Run tests in parallel across all LLMs
+- **10x Repeatability**: Each test case runs 10 times per LLM to measure consistency
+- **JSON Comparison**: Exact JSON matching (ignoring formatting)
+- **Auto-Improvement**: LLMs automatically suggest and test prompt improvements
+- **Version Control**: All prompts are versioned with full history
+- **Progress Tracking**: Real-time progress bars with polling
+
+## Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+3. **Open the app:**
+   Navigate to http://localhost:3000
+
+4. **Configure API Keys:**
+   - Go to Configuration page
+   - Add your OpenAI, Bedrock, and/or Grok API keys
+   - At least one provider must be configured to run tests
+
+## Usage
+
+### 1. Create Prompts
+- Navigate to "Prompts" page
+- Enter a name and the system prompt content
+- Prompts are automatically versioned
+
+### 2. Add Test Cases
+- Navigate to "Test Cases" page
+- Select a prompt from the dropdown
+- Add test cases with:
+  - **Input**: The user message to send to the LLM
+  - **Expected Output**: Valid JSON that the LLM should return
+
+### 3. Run Tests
+- Navigate to "Run Tests" page
+- Select a prompt with test cases
+- Click "Run Tests"
+- Watch progress bars as tests execute
+- View detailed results with per-LLM scores
+
+### 4. Auto-Improve Prompts
+- Navigate to "Auto-Improve" page
+- Select a prompt with test cases
+- Set max iterations (how many improvement attempts)
+- Click "Start Improvement"
+- Watch the log as LLMs analyze failures and suggest improvements
+- Best improvements are automatically saved as new versions
+
+## How It Works
+
+### Test Execution
+1. For each test case × LLM combination:
+   - Send the system prompt + test input to the LLM
+   - Parse the response as JSON
+   - Compare against expected output (exact match after normalization)
+   - Repeat 10 times to measure consistency
+2. Calculate scores per LLM and overall
+
+### Auto-Improvement
+1. Test the original prompt and record failures
+2. For each iteration:
+   - Send failed test results to all LLMs
+   - Ask each LLM to suggest an improved prompt
+   - Test each suggestion
+   - Keep the best-scoring version
+   - Revert if no improvement found
+3. Save the best version automatically
+
+## API Endpoints
+
+- `GET/POST /api/config` - API key management
+- `GET/POST /api/prompts` - Prompt CRUD
+- `GET /api/prompts/:name/versions` - Version history
+- `GET/POST /api/prompts/:id/test-cases` - Test case management
+- `POST /api/test/run` - Start test run (returns jobId)
+- `GET /api/test/status/:jobId` - Poll test progress
+- `POST /api/improve/start` - Start improvement job
+- `GET /api/improve/status/:jobId` - Poll improvement progress
+
+## Tech Stack
+
+- **Backend**: Node.js, Express, TypeScript
+- **Database**: SQLite (sql.js - pure JavaScript)
+- **Frontend**: Plain HTML, CSS, JavaScript
+- **LLM APIs**: OpenAI SDK, AWS Bedrock SDK, Grok REST API
+
+## Project Structure
+
+```
+├── src/
+│   ├── server.ts           # Express server and routes
+│   ├── database.ts         # SQLite database operations
+│   ├── llm-clients/        # LLM provider clients
+│   │   ├── llm-client.ts   # Unified interface
+│   │   ├── openai-client.ts
+│   │   ├── bedrock-client.ts
+│   │   └── grok-client.ts
+│   ├── services/
+│   │   ├── test-runner.ts  # Test execution service
+│   │   └── improvement-service.ts
+│   └── utils/
+│       └── json-comparison.ts
+├── public/                 # Frontend HTML files
+│   ├── index.html
+│   ├── config.html
+│   ├── prompts.html
+│   ├── test-cases.html
+│   ├── run-tests.html
+│   └── improve.html
+└── data/                   # SQLite database (auto-created)
+```
+
+## Development
+
+```bash
+# Development mode with hot reload
+npm run dev
+
+# Build for production
+npm run build
+
+# Run production build
+npm start
+```
+
+## License
+
+MIT
+
