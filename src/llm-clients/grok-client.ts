@@ -1,83 +1,84 @@
-import { LLMClient, TestResultSummary, buildImprovementPrompt } from './llm-client';
-import { getConfig } from '../database';
+import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { getConfig } from "../database";
 
 export class GrokClient implements LLMClient {
-  name = 'Grok';
-  private baseUrl = 'https://api.x.ai/v1';
+    name = "Grok";
+    private baseUrl = "https://api.x.ai/v1";
 
-  private getApiKey(): string | null {
-    return getConfig('grok_api_key');
-  }
-
-  isConfigured(): boolean {
-    return !!this.getApiKey();
-  }
-
-  async complete(systemPrompt: string, userMessage: string): Promise<string> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
-      throw new Error('Grok API key not configured');
+    private getApiKey(): string | null {
+        return getConfig("grok_api_key");
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'grok-beta',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        temperature: 0.1,
-        max_tokens: 4096
-      })
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Grok API error: ${response.status} - ${error}`);
+    isConfigured(): boolean {
+        return !!this.getApiKey();
     }
 
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    return data.choices?.[0]?.message?.content ?? '';
-  }
+    async complete(systemPrompt: string, userMessage: string): Promise<string> {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error("Grok API key not configured");
+        }
 
-  async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
-      throw new Error('Grok API key not configured');
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: "grok-beta",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userMessage },
+                ],
+                temperature: 0.1,
+                max_tokens: 4096,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Grok API error: ${response.status} - ${error}`);
+        }
+
+        const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+        };
+        return data.choices?.[0]?.message?.content ?? "";
     }
 
-    const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
+    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            throw new Error("Grok API key not configured");
+        }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'grok-beta',
-        messages: [
-          { role: 'user', content: improvementPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 4096
-      })
-    });
+        const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Grok API error: ${response.status} - ${error}`);
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: "grok-beta",
+                messages: [{ role: "user", content: improvementPrompt }],
+                temperature: 0.7,
+                max_tokens: 4096,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Grok API error: ${response.status} - ${error}`);
+        }
+
+        const data = (await response.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+        };
+        return data.choices?.[0]?.message?.content ?? currentPrompt;
     }
-
-    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    return data.choices?.[0]?.message?.content ?? currentPrompt;
-  }
 }
 
 export const grokClient = new GrokClient();
-

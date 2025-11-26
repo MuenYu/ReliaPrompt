@@ -1,49 +1,52 @@
 // Unified interface for all LLM clients
 
 export interface LLMClient {
-  name: string;
-  isConfigured(): boolean;
-  complete(systemPrompt: string, userMessage: string): Promise<string>;
-  improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string>;
+    name: string;
+    isConfigured(): boolean;
+    complete(systemPrompt: string, userMessage: string): Promise<string>;
+    improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string>;
 }
 
 export interface TestResultSummary {
-  input: string;
-  expectedOutput: string;
-  actualOutput: string | null;
-  isCorrect: boolean;
-  error?: string;
+    input: string;
+    expectedOutput: string;
+    actualOutput: string | null;
+    isCorrect: boolean;
+    error?: string;
 }
 
 export interface LLMConfig {
-  openaiApiKey?: string;
-  bedrockAccessKeyId?: string;
-  bedrockSecretAccessKey?: string;
-  bedrockRegion?: string;
-  grokApiKey?: string;
+    openaiApiKey?: string;
+    bedrockAccessKeyId?: string;
+    bedrockSecretAccessKey?: string;
+    bedrockRegion?: string;
+    grokApiKey?: string;
 }
 
 // Store active clients
 let activeClients: LLMClient[] = [];
 
 export function getActiveClients(): LLMClient[] {
-  return activeClients;
+    return activeClients;
 }
 
 export function setActiveClients(clients: LLMClient[]): void {
-  activeClients = clients;
+    activeClients = clients;
 }
 
 export function getConfiguredClients(): LLMClient[] {
-  return activeClients.filter(client => client.isConfigured());
+    return activeClients.filter((client) => client.isConfigured());
 }
 
 // Improvement prompt template
-export function buildImprovementPrompt(currentPrompt: string, testResults: TestResultSummary[]): string {
-  const failedTests = testResults.filter(t => !t.isCorrect);
-  const passedTests = testResults.filter(t => t.isCorrect);
-  
-  let prompt = `You are an expert prompt engineer. Your task is to improve the following prompt to make it produce better, more accurate JSON outputs.
+export function buildImprovementPrompt(
+    currentPrompt: string,
+    testResults: TestResultSummary[]
+): string {
+    const failedTests = testResults.filter((t) => !t.isCorrect);
+    const passedTests = testResults.filter((t) => t.isCorrect);
+
+    let prompt = `You are an expert prompt engineer. Your task is to improve the following prompt to make it produce better, more accurate JSON outputs.
 
 ## Current Prompt:
 ${currentPrompt}
@@ -54,10 +57,11 @@ ${currentPrompt}
 
 `;
 
-  if (failedTests.length > 0) {
-    prompt += `## Failed Test Cases:\n`;
-    for (const test of failedTests.slice(0, 10)) { // Limit to 10 failed tests
-      prompt += `
+    if (failedTests.length > 0) {
+        prompt += `## Failed Test Cases:\n`;
+        for (const test of failedTests.slice(0, 10)) {
+            // Limit to 10 failed tests
+            prompt += `
 ### Test Input:
 ${test.input}
 
@@ -65,14 +69,14 @@ ${test.input}
 ${test.expectedOutput}
 
 ### Actual Output:
-${test.actualOutput ?? 'ERROR: ' + (test.error ?? 'Unknown error')}
+${test.actualOutput ?? "ERROR: " + (test.error ?? "Unknown error")}
 
 ---
 `;
+        }
     }
-  }
 
-  prompt += `
+    prompt += `
 ## Your Task:
 Analyze why the prompt is failing for these test cases and provide an improved version of the prompt.
 The improved prompt should:
@@ -82,6 +86,5 @@ The improved prompt should:
 
 IMPORTANT: Return ONLY the improved prompt text, nothing else. Do not include any explanations, markdown formatting, or code blocks. Just the raw prompt text.`;
 
-  return prompt;
+    return prompt;
 }
-
