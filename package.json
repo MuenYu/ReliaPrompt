@@ -1,7 +1,7 @@
 {
-    "name": "llm-prompt-testing-tool",
+    "name": "ReliaPrompt",
     "version": "1.0.0",
-    "description": "Tool for testing agentic server-side prompts against multiple LLMs",
+    "description": "Tool for testing llm prompts against multiple LLMs and improving them.",
     "main": "dist/server.js",
     "scripts": {
         "build": "bun run tsc",
