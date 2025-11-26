@@ -143,6 +143,8 @@ body {
 .btn-icon svg {
     width: 20px;
     height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 /* ============== SIDEBAR ============== */
