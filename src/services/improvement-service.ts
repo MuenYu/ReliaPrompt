@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import {
     createImprovementJob,
     updateImprovementJob,
@@ -51,7 +50,7 @@ export async function startImprovement(promptId: number, maxIterations: number):
         throw new Error("No LLM providers configured");
     }
 
-    const jobId = uuidv4();
+    const jobId = crypto.randomUUID();
     createImprovementJob(jobId, promptId, maxIterations);
 
     const progress: ImprovementProgress = {

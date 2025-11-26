@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import {
     createTestJob,
     updateTestJob,
@@ -83,7 +82,7 @@ export async function startTestRun(promptId: number): Promise<string> {
         throw new Error("No LLM providers configured. Please add API keys in the config.");
     }
 
-    const jobId = uuidv4();
+    const jobId = crypto.randomUUID();
     const totalTests = testCases.length * clients.length * RUNS_PER_TEST;
 
     createTestJob(jobId, promptId, totalTests);

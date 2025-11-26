@@ -16,12 +16,12 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 
 1. **Install dependencies:**
    ```bash
-   npm install
+   bun install
    ```
 
 2. **Start the development server:**
    ```bash
-   npm run dev
+   bun dev
    ```
 
 3. **Open the app:**
@@ -94,8 +94,9 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express, TypeScript
-- **Database**: SQLite (sql.js - pure JavaScript)
+- **Runtime**: Bun
+- **Backend**: Express, TypeScript
+- **Database**: SQLite (sql.js), Drizzle ORM
 - **Frontend**: Plain HTML, CSS, JavaScript
 - **LLM APIs**: OpenAI SDK, AWS Bedrock SDK, Grok REST API
 
@@ -129,13 +130,16 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 
 ```bash
 # Development mode with hot reload
-npm run dev
+bun dev
 
 # Build for production
-npm run build
+bun run build
 
 # Run production build
-npm start
+bun start
+
+# Format code
+bun run format
 ```
 
 ## License

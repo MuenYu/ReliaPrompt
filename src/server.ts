@@ -377,10 +377,10 @@ app.get("*", (req, res) => {
 });
 
 // Initialize database and start server
-async function start() {
+function start() {
     try {
         console.log("Initializing database...");
-        await initializeDatabase();
+        initializeDatabase();
         dbInitialized = true;
         console.log("Database initialized");
 

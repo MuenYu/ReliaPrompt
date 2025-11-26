@@ -117,23 +117,19 @@ export function deletePromptByName(name: string): void {
 export function getLatestPrompts(): Prompt[] {
     // Use raw SQL for the complex subquery since Drizzle doesn't support this well
     const sqlDb = getSqlDb();
-    const stmt = sqlDb.prepare(`
-		SELECT p1.* FROM prompts p1
-		INNER JOIN (
-			SELECT name, MAX(version) as max_version
-			FROM prompts
-			GROUP BY name
-		) p2 ON p1.name = p2.name AND p1.version = p2.max_version
-		ORDER BY p1.created_at DESC
-	`);
-
-    const results: Prompt[] = [];
-    while (stmt.step()) {
-        const row = stmt.getAsObject() as Prompt;
-        results.push(row);
-    }
-    stmt.free();
-    return results;
+    return sqlDb
+        .query(
+            `
+            SELECT p1.* FROM prompts p1
+            INNER JOIN (
+                SELECT name, MAX(version) as max_version
+                FROM prompts
+                GROUP BY name
+            ) p2 ON p1.name = p2.name AND p1.version = p2.max_version
+            ORDER BY p1.created_at DESC
+        `
+        )
+        .all() as Prompt[];
 }
 
 export function getPromptVersions(name: string): Prompt[] {
@@ -183,21 +179,16 @@ export function getTestCasesForPrompt(promptId: number): TestCase[] {
 export function getTestCasesForPromptName(promptName: string): TestCase[] {
     // Use raw SQL for the join query
     const sqlDb = getSqlDb();
-    const stmt = sqlDb.prepare(`
-		SELECT tc.* FROM test_cases tc
-		INNER JOIN prompts p ON tc.prompt_id = p.id
-		WHERE p.name = ?
-		ORDER BY tc.created_at
-	`);
-    stmt.bind([promptName]);
-
-    const results: TestCase[] = [];
-    while (stmt.step()) {
-        const row = stmt.getAsObject() as TestCase;
-        results.push(row);
-    }
-    stmt.free();
-    return results;
+    return sqlDb
+        .query(
+            `
+            SELECT tc.* FROM test_cases tc
+            INNER JOIN prompts p ON tc.prompt_id = p.id
+            WHERE p.name = ?
+            ORDER BY tc.created_at
+        `
+        )
+        .all(promptName) as TestCase[];
 }
 
 export function deleteTestCase(id: number): void {
