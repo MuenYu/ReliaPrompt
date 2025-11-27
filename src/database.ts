@@ -1,5 +1,5 @@
-import { eq, desc, inArray } from "drizzle-orm";
-import { getDb, getSqlDb, withSave } from "./db";
+import { eq, desc, inArray, max, and, isNotNull } from "drizzle-orm";
+import { getDb, withSave } from "./db";
 import {
     config,
     prompts,
@@ -142,21 +142,40 @@ export function deleteAllVersionsOfPrompt(id: number): void {
 }
 
 export function getLatestPrompts(): Prompt[] {
-    const sqlDb = getSqlDb();
-    return sqlDb
-        .query(
-            `
-            SELECT p1.* FROM prompts p1
-            INNER JOIN (
-                SELECT prompt_group_id, MAX(version) as max_version
-                FROM prompts
-                WHERE prompt_group_id IS NOT NULL
-                GROUP BY prompt_group_id
-            ) p2 ON p1.prompt_group_id = p2.prompt_group_id AND p1.version = p2.max_version
-            ORDER BY p1.created_at DESC
-        `
+    const db = getDb();
+
+    // Subquery to get max version per prompt group
+    const maxVersions = db
+        .select({
+            promptGroupId: prompts.promptGroupId,
+            maxVersion: max(prompts.version).as("max_version"),
+        })
+        .from(prompts)
+        .where(isNotNull(prompts.promptGroupId))
+        .groupBy(prompts.promptGroupId)
+        .as("max_versions");
+
+    // Join prompts with the subquery to get only the latest version of each group
+    return db
+        .select({
+            id: prompts.id,
+            name: prompts.name,
+            content: prompts.content,
+            version: prompts.version,
+            parentVersionId: prompts.parentVersionId,
+            promptGroupId: prompts.promptGroupId,
+            createdAt: prompts.createdAt,
+        })
+        .from(prompts)
+        .innerJoin(
+            maxVersions,
+            and(
+                eq(prompts.promptGroupId, maxVersions.promptGroupId),
+                eq(prompts.version, maxVersions.maxVersion)
+            )
         )
-        .all() as Prompt[];
+        .orderBy(desc(prompts.createdAt))
+        .all();
 }
 
 export function getPromptVersionsByGroupId(groupId: number): Prompt[] {
@@ -220,32 +239,36 @@ export function getTestCasesForPrompt(promptId: number): TestCase[] {
 }
 
 export function getTestCasesForPromptGroupId(groupId: number): TestCase[] {
-    const sqlDb = getSqlDb();
-    return sqlDb
-        .query(
-            `
-            SELECT tc.* FROM test_cases tc
-            INNER JOIN prompts p ON tc.prompt_id = p.id
-            WHERE p.prompt_group_id = ?
-            ORDER BY tc.created_at
-        `
-        )
-        .all(groupId) as TestCase[];
+    return getDb()
+        .select({
+            id: testCases.id,
+            promptId: testCases.promptId,
+            input: testCases.input,
+            expectedOutput: testCases.expectedOutput,
+            createdAt: testCases.createdAt,
+        })
+        .from(testCases)
+        .innerJoin(prompts, eq(testCases.promptId, prompts.id))
+        .where(eq(prompts.promptGroupId, groupId))
+        .orderBy(testCases.createdAt)
+        .all();
 }
 
 // Legacy function for backward compatibility
 export function getTestCasesForPromptName(promptName: string): TestCase[] {
-    const sqlDb = getSqlDb();
-    return sqlDb
-        .query(
-            `
-            SELECT tc.* FROM test_cases tc
-            INNER JOIN prompts p ON tc.prompt_id = p.id
-            WHERE p.name = ?
-            ORDER BY tc.created_at
-        `
-        )
-        .all(promptName) as TestCase[];
+    return getDb()
+        .select({
+            id: testCases.id,
+            promptId: testCases.promptId,
+            input: testCases.input,
+            expectedOutput: testCases.expectedOutput,
+            createdAt: testCases.createdAt,
+        })
+        .from(testCases)
+        .innerJoin(prompts, eq(testCases.promptId, prompts.id))
+        .where(eq(prompts.name, promptName))
+        .orderBy(testCases.createdAt)
+        .all();
 }
 
 export function deleteTestCase(id: number): void {

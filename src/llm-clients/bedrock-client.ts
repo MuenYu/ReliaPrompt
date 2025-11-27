@@ -3,6 +3,23 @@ import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-clie
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
 
+/**
+ * Response structure from Bedrock Claude models.
+ */
+interface BedrockClaudeResponse {
+    content?: Array<{
+        type: string;
+        text?: string;
+    }>;
+    id?: string;
+    model?: string;
+    stop_reason?: string;
+    usage?: {
+        input_tokens: number;
+        output_tokens: number;
+    };
+}
+
 export class BedrockClient implements LLMClient {
     name = "Bedrock";
     private client: BedrockRuntimeClient | null = null;
@@ -61,7 +78,9 @@ export class BedrockClient implements LLMClient {
         });
 
         const response = await client.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const responseBody = JSON.parse(
+            new TextDecoder().decode(response.body)
+        ) as BedrockClaudeResponse;
 
         return responseBody.content?.[0]?.text ?? "";
     }
@@ -95,7 +114,9 @@ export class BedrockClient implements LLMClient {
         });
 
         const response = await client.send(command);
-        const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        const responseBody = JSON.parse(
+            new TextDecoder().decode(response.body)
+        ) as BedrockClaudeResponse;
 
         return responseBody.content?.[0]?.text ?? currentPrompt;
     }

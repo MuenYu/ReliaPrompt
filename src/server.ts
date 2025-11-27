@@ -24,7 +24,7 @@ import {
     getImprovementJobByIdOrFail,
 } from "./database";
 import { refreshClients, getConfiguredClients } from "./llm-clients";
-import { startTestRun, getTestProgress } from "./services/test-runner";
+import { startTestRun, getTestProgress, TestResults } from "./services/test-runner";
 import { startImprovement, getImprovementProgress } from "./services/improvement-service";
 import { getErrorMessage, getErrorStatusCode, NotFoundError, ValidationError } from "./errors";
 
@@ -290,6 +290,9 @@ app.get("/api/test/status/:jobId", (req, res) => {
         }
 
         const job = getTestJobByIdOrFail(jobId);
+        const results: TestResults | null = job.results
+            ? (JSON.parse(job.results) as TestResults)
+            : null;
         res.json({
             jobId: job.id,
             status: job.status,
@@ -297,7 +300,7 @@ app.get("/api/test/status/:jobId", (req, res) => {
             completedTests: job.completedTests,
             progress:
                 job.totalTests > 0 ? Math.round((job.completedTests / job.totalTests) * 100) : 0,
-            results: job.results ? JSON.parse(job.results) : null,
+            results,
         });
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -338,7 +341,7 @@ app.get("/api/improve/status/:jobId", (req, res) => {
             bestScore: job.bestScore,
             bestPromptContent: job.bestPromptContent,
             originalScore: null,
-            log: job.log ? job.log.split("\n").filter((l: string) => l) : [],
+            log: job.log ? job.log.split("\n").filter((l) => l) : [],
         });
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });

@@ -9,7 +9,7 @@ import {
     TestCase,
 } from "../database";
 import { getConfiguredClients, LLMClient, TestResultSummary } from "../llm-clients";
-import { runTestsForPromptContent, getTestResultSummary } from "./test-runner";
+import { runTestsForPromptContent, getTestResultSummary, LLMTestResult } from "./test-runner";
 import { NotFoundError, ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 export interface ImprovementProgress {
@@ -143,7 +143,7 @@ async function runImprovement(
             llm: string;
             prompt: string;
             score: number;
-            results: any;
+            results: LLMTestResult[];
         }> = [];
 
         for (const improvement of improvements) {
