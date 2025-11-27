@@ -94,21 +94,18 @@ export class GeminiClient implements LLMClient {
         // Ensure model ID has proper format
         const modelPath = modelId.startsWith("models/") ? modelId : `models/${modelId}`;
 
-        const response = await fetch(
-            `${this.baseUrl}/${modelPath}:generateContent?key=${apiKey}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
+        const response = await fetch(`${this.baseUrl}/${modelPath}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                contents,
+                generationConfig: {
+                    maxOutputTokens: 4096,
                 },
-                body: JSON.stringify({
-                    contents,
-                    generationConfig: {
-                        maxOutputTokens: 4096,
-                    },
-                }),
-            }
-        );
+            }),
+        });
 
         if (!response.ok) {
             const error = await response.text();
@@ -157,4 +154,3 @@ export class GeminiClient implements LLMClient {
 }
 
 export const geminiClient = new GeminiClient();
-
