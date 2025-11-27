@@ -1,5 +1,6 @@
 import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
+import { ConfigurationError, LLMError } from "../errors";
 
 export class DeepseekClient implements LLMClient {
     name = "Deepseek";
@@ -16,7 +17,7 @@ export class DeepseekClient implements LLMClient {
     async complete(systemPrompt: string, userMessage: string): Promise<string> {
         const apiKey = this.getApiKey();
         if (!apiKey) {
-            throw new Error("Deepseek API key not configured");
+            throw new ConfigurationError("Deepseek API key not configured");
         }
 
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -38,7 +39,7 @@ export class DeepseekClient implements LLMClient {
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Deepseek API error: ${response.status} - ${error}`);
+            throw new LLMError("Deepseek", `API error: ${response.status} - ${error}`);
         }
 
         const data = (await response.json()) as {
@@ -50,7 +51,7 @@ export class DeepseekClient implements LLMClient {
     async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
         const apiKey = this.getApiKey();
         if (!apiKey) {
-            throw new Error("Deepseek API key not configured");
+            throw new ConfigurationError("Deepseek API key not configured");
         }
 
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
@@ -71,7 +72,7 @@ export class DeepseekClient implements LLMClient {
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Deepseek API error: ${response.status} - ${error}`);
+            throw new LLMError("Deepseek", `API error: ${response.status} - ${error}`);
         }
 
         const data = (await response.json()) as {

@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
+import { ConfigurationError } from "../errors";
 
 export class OpenAIClient implements LLMClient {
     name = "OpenAI";
@@ -24,7 +25,7 @@ export class OpenAIClient implements LLMClient {
     async complete(systemPrompt: string, userMessage: string): Promise<string> {
         const client = this.getClient();
         if (!client) {
-            throw new Error("OpenAI API key not configured");
+            throw new ConfigurationError("OpenAI API key not configured");
         }
 
         const response = await client.chat.completions.create({
@@ -43,7 +44,7 @@ export class OpenAIClient implements LLMClient {
     async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
         const client = this.getClient();
         if (!client) {
-            throw new Error("OpenAI API key not configured");
+            throw new ConfigurationError("OpenAI API key not configured");
         }
 
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);

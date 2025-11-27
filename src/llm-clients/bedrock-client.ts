@@ -1,6 +1,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
+import { ConfigurationError } from "../errors";
 
 export class BedrockClient implements LLMClient {
     name = "Bedrock";
@@ -34,7 +35,7 @@ export class BedrockClient implements LLMClient {
     async complete(systemPrompt: string, userMessage: string): Promise<string> {
         const client = this.getClient();
         if (!client) {
-            throw new Error("Bedrock credentials not configured");
+            throw new ConfigurationError("Bedrock credentials not configured");
         }
 
         const modelId = "anthropic.claude-3-sonnet-20240229-v1:0";
@@ -68,7 +69,7 @@ export class BedrockClient implements LLMClient {
     async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
         const client = this.getClient();
         if (!client) {
-            throw new Error("Bedrock credentials not configured");
+            throw new ConfigurationError("Bedrock credentials not configured");
         }
 
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);

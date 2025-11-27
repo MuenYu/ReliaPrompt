@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 
@@ -23,6 +23,7 @@ import {
 import { refreshClients, getConfiguredClients } from "./llm-clients";
 import { startTestRun, getTestProgress } from "./services/test-runner";
 import { startImprovement, getImprovementProgress } from "./services/improvement-service";
+import { getErrorMessage, getErrorStatusCode, NotFoundError, ValidationError } from "./errors";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,7 +57,7 @@ app.get("/api/config", (req, res) => {
         }
         res.json(masked);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -83,7 +84,7 @@ app.post("/api/config", (req, res) => {
 
         res.json({ success: true, message: "Configuration updated" });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -95,7 +96,7 @@ app.get("/api/config/providers", (req, res) => {
             count: clients.length,
         });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -104,7 +105,7 @@ app.get("/api/prompts", (req, res) => {
         const prompts = getLatestPrompts();
         res.json(prompts);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -113,7 +114,7 @@ app.get("/api/prompts/all", (req, res) => {
         const prompts = getAllPrompts();
         res.json(prompts);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -122,13 +123,13 @@ app.post("/api/prompts", (req, res) => {
         const { name, content, parentVersionId } = req.body;
 
         if (!name || !content) {
-            return res.status(400).json({ error: "Name and content are required" });
+            throw new ValidationError("Name and content are required");
         }
 
         const prompt = createPrompt(name, content, parentVersionId);
         res.json(prompt);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -138,12 +139,12 @@ app.get("/api/prompts/:id", (req, res) => {
         const prompt = getPromptById(id);
 
         if (!prompt) {
-            return res.status(404).json({ error: "Prompt not found" });
+            throw new NotFoundError("Prompt", id);
         }
 
         res.json(prompt);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -154,7 +155,7 @@ app.get("/api/prompts/:id/versions", (req, res) => {
         const prompt = getPromptById(id);
         
         if (!prompt) {
-            return res.status(404).json({ error: "Prompt not found" });
+            throw new NotFoundError("Prompt", id);
         }
 
         // Use promptGroupId if available, otherwise fall back to the prompt's own ID
@@ -162,7 +163,7 @@ app.get("/api/prompts/:id/versions", (req, res) => {
         const versions = getPromptVersionsByGroupId(groupId);
         res.json(versions);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -172,7 +173,7 @@ app.get("/api/prompts/by-name/:name/versions", (req, res) => {
         const versions = getPromptVersions(req.params.name);
         res.json(versions);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -181,12 +182,12 @@ app.delete("/api/prompts/:id", (req, res) => {
         const id = parseInt(req.params.id, 10);
         const prompt = getPromptById(id);
         if (!prompt) {
-            return res.status(404).json({ error: "Prompt not found" });
+            throw new NotFoundError("Prompt", id);
         }
         deletePrompt(id);
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -196,11 +197,7 @@ app.delete("/api/prompts/:id/all-versions", (req, res) => {
         deleteAllVersionsOfPrompt(id);
         res.json({ success: true });
     } catch (error) {
-        const errorMessage = (error as Error).message;
-        if (errorMessage === "Prompt not found") {
-            return res.status(404).json({ error: errorMessage });
-        }
-        res.status(500).json({ error: errorMessage });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -210,7 +207,7 @@ app.get("/api/prompts/:id/test-cases", (req, res) => {
         const testCases = getTestCasesForPrompt(promptId);
         res.json(testCases);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -220,19 +217,19 @@ app.post("/api/prompts/:id/test-cases", (req, res) => {
         const { input, expected_output } = req.body;
 
         if (!input || !expected_output) {
-            return res.status(400).json({ error: "Input and expected_output are required" });
+            throw new ValidationError("Input and expected_output are required");
         }
 
         try {
             JSON.parse(expected_output);
         } catch {
-            return res.status(400).json({ error: "expected_output must be valid JSON" });
+            throw new ValidationError("expected_output must be valid JSON");
         }
 
         const testCase = createTestCase(promptId, input, expected_output);
         res.json(testCase);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -242,22 +239,22 @@ app.put("/api/test-cases/:id", (req, res) => {
         const { input, expected_output } = req.body;
 
         if (!input || !expected_output) {
-            return res.status(400).json({ error: "Input and expected_output are required" });
+            throw new ValidationError("Input and expected_output are required");
         }
 
         try {
             JSON.parse(expected_output);
         } catch {
-            return res.status(400).json({ error: "expected_output must be valid JSON" });
+            throw new ValidationError("expected_output must be valid JSON");
         }
 
         const testCase = updateTestCase(id, input, expected_output);
         if (!testCase) {
-            return res.status(404).json({ error: "Test case not found" });
+            throw new NotFoundError("Test case", id);
         }
         res.json(testCase);
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -267,7 +264,7 @@ app.delete("/api/test-cases/:id", (req, res) => {
         deleteTestCase(id);
         res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -276,18 +273,18 @@ app.post("/api/test/run", async (req, res) => {
         const { promptId, runsPerTest } = req.body;
 
         if (!promptId) {
-            return res.status(400).json({ error: "promptId is required" });
+            throw new ValidationError("promptId is required");
         }
 
         const runs = runsPerTest ? parseInt(runsPerTest, 10) : 10;
         if (runs < 1 || runs > 100) {
-            return res.status(400).json({ error: "runsPerTest must be between 1 and 100" });
+            throw new ValidationError("runsPerTest must be between 1 and 100");
         }
 
         const jobId = await startTestRun(promptId, runs);
         res.json({ jobId });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -302,7 +299,7 @@ app.get("/api/test/status/:jobId", (req, res) => {
 
         const job = getTestJobById(jobId);
         if (!job) {
-            return res.status(404).json({ error: "Job not found" });
+            throw new NotFoundError("Job", jobId);
         }
 
         res.json({
@@ -315,7 +312,7 @@ app.get("/api/test/status/:jobId", (req, res) => {
             results: job.results ? JSON.parse(job.results) : null,
         });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -324,14 +321,14 @@ app.post("/api/improve/start", async (req, res) => {
         const { promptId, maxIterations } = req.body;
 
         if (!promptId) {
-            return res.status(400).json({ error: "promptId is required" });
+            throw new ValidationError("promptId is required");
         }
 
         const iterations = maxIterations || 5;
         const jobId = await startImprovement(promptId, iterations);
         res.json({ jobId });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 
@@ -346,7 +343,7 @@ app.get("/api/improve/status/:jobId", (req, res) => {
 
         const job = require("./database").getImprovementJobById(jobId);
         if (!job) {
-            return res.status(404).json({ error: "Job not found" });
+            throw new NotFoundError("Job", jobId);
         }
 
         res.json({
@@ -360,7 +357,7 @@ app.get("/api/improve/status/:jobId", (req, res) => {
             log: job.log ? job.log.split("\n").filter((l: string) => l) : [],
         });
     } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
 });
 

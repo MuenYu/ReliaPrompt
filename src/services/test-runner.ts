@@ -11,6 +11,7 @@ import {
 } from "../database";
 import { getConfiguredClients, LLMClient } from "../llm-clients";
 import { compareJSON } from "../utils/json-comparison";
+import { NotFoundError, ConfigurationError, getErrorMessage } from "../errors";
 
 const DEFAULT_RUNS_PER_TEST = 10;
 
@@ -64,17 +65,17 @@ export function getTestProgress(jobId: string): TestProgress | null {
 export async function startTestRun(promptId: number, runsPerTest: number = DEFAULT_RUNS_PER_TEST): Promise<string> {
     const prompt = getPromptById(promptId);
     if (!prompt) {
-        throw new Error(`Prompt ${promptId} not found`);
+        throw new NotFoundError("Prompt", promptId);
     }
 
     const testCases = getTestCasesForPrompt(promptId);
     if (testCases.length === 0) {
-        throw new Error(`No test cases found for prompt ${promptId}`);
+        throw new NotFoundError(`Test cases for prompt ${promptId}`);
     }
 
     const clients = getConfiguredClients();
     if (clients.length === 0) {
-        throw new Error("No LLM providers configured. Please add API keys in the config.");
+        throw new ConfigurationError("No LLM providers configured. Please add API keys in the config.");
     }
 
     const jobId = crypto.randomUUID();
@@ -156,7 +157,7 @@ async function runTests(
                     );
                 } catch (error) {
                     llmTotalRuns++;
-                    const errorMessage = (error as Error).message;
+                    const errorMessage = getErrorMessage(error);
                     runs.push({
                         runNumber,
                         actualOutput: null,
@@ -266,7 +267,7 @@ export async function runTestsForPromptContent(
                         runNumber,
                         actualOutput: null,
                         isCorrect: false,
-                        error: (error as Error).message,
+                        error: getErrorMessage(error),
                     });
                 }
             }

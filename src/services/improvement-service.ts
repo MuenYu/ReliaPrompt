@@ -11,6 +11,7 @@ import {
 } from "../database";
 import { getConfiguredClients, LLMClient, TestResultSummary } from "../llm-clients";
 import { runTestsForPromptContent, getTestResultSummary } from "./test-runner";
+import { NotFoundError, ConfigurationError, getErrorMessage } from "../errors";
 
 export interface ImprovementProgress {
     jobId: string;
@@ -33,17 +34,17 @@ export function getImprovementProgress(jobId: string): ImprovementProgress | nul
 export async function startImprovement(promptId: number, maxIterations: number): Promise<string> {
     const prompt = getPromptById(promptId);
     if (!prompt) {
-        throw new Error(`Prompt ${promptId} not found`);
+        throw new NotFoundError("Prompt", promptId);
     }
 
     const testCases = getTestCasesForPrompt(promptId);
     if (testCases.length === 0) {
-        throw new Error(`No test cases found for prompt ${promptId}`);
+        throw new NotFoundError(`Test cases for prompt ${promptId}`);
     }
 
     const clients = getConfiguredClients();
     if (clients.length === 0) {
-        throw new Error("No LLM providers configured");
+        throw new ConfigurationError("No LLM providers configured");
     }
 
     const jobId = crypto.randomUUID();
@@ -133,7 +134,7 @@ async function runImprovement(
                 const improved = await client.improvePrompt(currentBestPrompt, testSummary);
                 return { llm: client.name, prompt: improved, error: null };
             } catch (error) {
-                return { llm: client.name, prompt: null, error: (error as Error).message };
+                return { llm: client.name, prompt: null, error: getErrorMessage(error) };
             }
         });
 
@@ -173,7 +174,7 @@ async function runImprovement(
                     results: result.results,
                 });
             } catch (error) {
-                log(`${improvement.llm}: Testing failed - ${(error as Error).message}`);
+                log(`${improvement.llm}: Testing failed - ${getErrorMessage(error)}`);
             }
         }
 

@@ -13,6 +13,7 @@ import {
     type TestResult,
     type ImprovementJob,
 } from "./db/schema";
+import { NotFoundError } from "./errors";
 
 export { initializeDatabase } from "./db";
 export type { Prompt, TestCase, TestJob, TestResult, ImprovementJob };
@@ -107,7 +108,7 @@ export function deleteAllVersionsOfPrompt(id: number): void {
         // First, get the prompt to find its promptGroupId
         const prompt = db.select().from(prompts).where(eq(prompts.id, id)).get();
         if (!prompt) {
-            throw new Error("Prompt not found");
+            throw new NotFoundError("Prompt", id);
         }
 
         if (!prompt.promptGroupId) {
