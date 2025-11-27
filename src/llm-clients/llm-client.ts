@@ -8,8 +8,8 @@ export interface LLMClient {
     name: string;
     isConfigured(): boolean;
     listModels(): Promise<ModelInfo[]>;
-    complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string>;
-    improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId?: string): Promise<string>;
+    complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string>;
+    improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId: string): Promise<string>;
 }
 
 export interface TestResultSummary {

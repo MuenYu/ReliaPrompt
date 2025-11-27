@@ -5,11 +5,12 @@ import {
     getPromptByIdOrFail,
     getTestCasesForPrompt,
     createPrompt,
+    getConfig,
     Prompt,
     TestCase,
 } from "../database";
-import { getConfiguredClients, LLMClient } from "../llm-clients";
-import { runTestsForPromptContent, getTestResultSummary, LLMTestResult } from "./test-runner";
+import { getConfiguredClients, ModelSelection } from "../llm-clients";
+import { runTestsForPromptContent, getTestResultSummary, LLMTestResult, ModelRunner } from "./test-runner";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 export interface ImprovementProgress {
@@ -34,11 +35,11 @@ async function handleImprovementRun(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    clients: LLMClient[],
+    modelRunners: ModelRunner[],
     maxIterations: number
 ): Promise<void> {
     try {
-        await runImprovement(jobId, prompt, testCases, clients, maxIterations);
+        await runImprovement(jobId, prompt, testCases, modelRunners, maxIterations);
     } catch (error) {
         const progress = activeImprovementJobs.get(jobId);
         if (progress) {
@@ -50,6 +51,43 @@ async function handleImprovementRun(
     }
 }
 
+function getModelRunnersFromSelections(selectedModels: ModelSelection[]): ModelRunner[] {
+    const clients = getConfiguredClients();
+    const clientMap = new Map(clients.map((c) => [c.name, c]));
+    const runners: ModelRunner[] = [];
+
+    for (const selection of selectedModels) {
+        const client = clientMap.get(selection.provider);
+        if (client) {
+            runners.push({
+                client,
+                modelId: selection.modelId,
+                displayName: `${selection.provider} (${selection.modelId})`,
+            });
+        }
+    }
+
+    return runners;
+}
+
+function getSavedModelRunners(): ModelRunner[] {
+    const savedModelsJson = getConfig("selected_models");
+    if (savedModelsJson) {
+        try {
+            const savedModels = JSON.parse(savedModelsJson) as ModelSelection[];
+            if (Array.isArray(savedModels) && savedModels.length > 0) {
+                return getModelRunnersFromSelections(savedModels);
+            }
+        } catch {
+            // Fall through to throw error
+        }
+    }
+
+    throw new ConfigurationError(
+        "No models selected. Please select at least one model in settings before running improvements."
+    );
+}
+
 export async function startImprovement(promptId: number, maxIterations: number): Promise<string> {
     // Use OrFail variant for cleaner code - throws NotFoundError if prompt doesn't exist
     const prompt = getPromptByIdOrFail(promptId);
@@ -58,9 +96,9 @@ export async function startImprovement(promptId: number, maxIterations: number):
     // Use requireEntity for explicit assertion with clear error message
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
-    const clients = getConfiguredClients();
-    if (clients.length === 0) {
-        throw new ConfigurationError("No LLM providers configured");
+    const modelRunners = getSavedModelRunners();
+    if (modelRunners.length === 0) {
+        throw new ConfigurationError("No LLM models selected. Please select at least one model in settings.");
     }
 
     const jobId = crypto.randomUUID();
@@ -78,7 +116,7 @@ export async function startImprovement(promptId: number, maxIterations: number):
     };
     activeImprovementJobs.set(jobId, progress);
 
-    handleImprovementRun(jobId, prompt, testCases, clients, maxIterations);
+    handleImprovementRun(jobId, prompt, testCases, modelRunners, maxIterations);
 
     return jobId;
 }
@@ -87,7 +125,7 @@ async function runImprovement(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    clients: LLMClient[],
+    modelRunners: ModelRunner[],
     maxIterations: number
 ): Promise<void> {
     const progress = activeImprovementJobs.get(jobId)!;
@@ -102,10 +140,10 @@ async function runImprovement(
     log(`Starting improvement for prompt: "${prompt.name}" (id: ${prompt.id})`);
     log(`Max iterations: ${maxIterations}`);
     log(`Test cases: ${testCases.length}`);
-    log(`Configured LLMs: ${clients.map((c) => c.name).join(", ")}`);
+    log(`Configured models: ${modelRunners.map((r) => r.displayName).join(", ")}`);
 
     log("Testing original prompt...");
-    const originalResult = await runTestsForPromptContent(prompt.content, testCases, clients);
+    const originalResult = await runTestsForPromptContent(prompt.content, testCases, modelRunners);
     const originalScore = originalResult.score;
 
     progress.originalScore = originalScore;
@@ -136,13 +174,13 @@ async function runImprovement(
 
         const testSummary = getTestResultSummary(currentTestResults);
 
-        log("Requesting improvements from all LLMs...");
-        const improvementPromises = clients.map(async (client) => {
+        log("Requesting improvements from all models...");
+        const improvementPromises = modelRunners.map(async (runner) => {
             try {
-                const improved = await client.improvePrompt(currentBestPrompt, testSummary);
-                return { llm: client.name, prompt: improved, error: null };
+                const improved = await runner.client.improvePrompt(currentBestPrompt, testSummary, runner.modelId);
+                return { llm: runner.displayName, prompt: improved, error: null };
             } catch (error) {
-                return { llm: client.name, prompt: null, error: getErrorMessage(error) };
+                return { llm: runner.displayName, prompt: null, error: getErrorMessage(error) };
             }
         });
 
@@ -171,7 +209,7 @@ async function runImprovement(
                 const result = await runTestsForPromptContent(
                     improvement.prompt,
                     testCases,
-                    clients
+                    modelRunners
                 );
                 log(`${improvement.llm}: Score = ${result.score}% (was ${currentBestScore}%)`);
 

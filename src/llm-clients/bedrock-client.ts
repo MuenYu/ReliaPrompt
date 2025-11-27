@@ -7,11 +7,6 @@ import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from 
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
 
-const DEFAULT_MODEL = "anthropic.claude-3-sonnet-20240229-v1:0";
-
-/**
- * Response structure from Bedrock Claude models.
- */
 interface BedrockClaudeResponse {
     content?: Array<{
         type: string;
@@ -91,9 +86,6 @@ export class BedrockClient implements LLMClient {
         return !!(getConfig("bedrock_access_key_id") && getConfig("bedrock_secret_access_key"));
     }
 
-    /**
-     * Reset the cached clients. Call this when the config changes.
-     */
     reset(): void {
         this.runtimeClient = null;
         this.bedrockClient = null;
@@ -115,6 +107,7 @@ export class BedrockClient implements LLMClient {
             const models: ModelInfo[] = [];
 
             for (const model of response.modelSummaries ?? []) {
+                console.log("bedrock", { model });
                 if (model.modelId && model.modelName) {
                     models.push({
                         id: model.modelId,
@@ -136,7 +129,7 @@ export class BedrockClient implements LLMClient {
     private async makeRequest(
         messages: Array<{ role: "user"; content: string }>,
         temperature: number,
-        modelId: string = DEFAULT_MODEL,
+        modelId: string,
         systemPrompt?: string,
         defaultValue: string = ""
     ): Promise<string> {
@@ -177,11 +170,11 @@ export class BedrockClient implements LLMClient {
         return responseBody.content?.[0]?.text ?? defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string> {
+    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
         return this.makeRequest(
             [{ role: "user", content: userMessage }],
             0.1,
-            modelId ?? DEFAULT_MODEL,
+            modelId,
             systemPrompt
         );
     }
@@ -189,13 +182,13 @@ export class BedrockClient implements LLMClient {
     async improvePrompt(
         currentPrompt: string,
         testResults: TestResultSummary[],
-        modelId?: string
+        modelId: string
     ): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
         return this.makeRequest(
             [{ role: "user", content: improvementPrompt }],
             0.7,
-            modelId ?? DEFAULT_MODEL,
+            modelId,
             undefined,
             currentPrompt
         );

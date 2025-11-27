@@ -2,18 +2,20 @@ import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from 
 import { getConfig } from "../database";
 import { ConfigurationError, LLMError } from "../errors";
 
-const DEFAULT_MODEL = "deepseek-chat";
+interface DeepseekModel {
+    id: string;
+    object: string;
+    owned_by: string;
+}
 
-// Deepseek available models (hardcoded since no listing API)
-const DEEPSEEK_MODELS: ModelInfo[] = [
-    { id: "deepseek-chat", name: "DeepSeek Chat", provider: "Deepseek" },
-    { id: "deepseek-coder", name: "DeepSeek Coder", provider: "Deepseek" },
-    { id: "deepseek-reasoner", name: "DeepSeek Reasoner", provider: "Deepseek" },
-];
+interface DeepseekModelsResponse {
+    object: string;
+    data: DeepseekModel[];
+}
 
 export class DeepseekClient implements LLMClient {
     name = "Deepseek";
-    private baseUrl = "https://api.deepseek.com/v1";
+    private baseUrl = "https://api.deepseek.com";
 
     private getApiKey(): string | null {
         return getConfig("deepseek_api_key");
@@ -24,16 +26,48 @@ export class DeepseekClient implements LLMClient {
     }
 
     async listModels(): Promise<ModelInfo[]> {
-        if (!this.isConfigured()) {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
             return [];
         }
-        return DEEPSEEK_MODELS;
+
+        try {
+            const response = await fetch(`${this.baseUrl}/models`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                },
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                console.error(`Deepseek list models failed: ${response.status} - ${error}`);
+                return [];
+            }
+
+            const data = (await response.json()) as DeepseekModelsResponse;
+            return data.data.map((model) => ({
+                id: model.id,
+                name: this.formatModelName(model.id),
+                provider: "Deepseek",
+            }));
+        } catch (error) {
+            console.error("Failed to fetch Deepseek models:", error);
+            return [];
+        }
+    }
+
+    private formatModelName(modelId: string): string {
+        return modelId
+            .split("-")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
     }
 
     private async makeRequest(
         messages: Array<{ role: "system" | "user"; content: string }>,
         temperature: number,
-        modelId: string = DEFAULT_MODEL,
+        modelId: string,
         defaultValue: string = ""
     ): Promise<string> {
         const apiKey = this.getApiKey();
@@ -41,7 +75,7 @@ export class DeepseekClient implements LLMClient {
             throw new ConfigurationError("Deepseek API key not configured");
         }
 
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -66,20 +100,29 @@ export class DeepseekClient implements LLMClient {
         return data.choices?.[0]?.message?.content ?? defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string> {
+    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
             0.1,
-            modelId ?? DEFAULT_MODEL
+            modelId
         );
     }
 
-    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId?: string): Promise<string> {
+    async improvePrompt(
+        currentPrompt: string,
+        testResults: TestResultSummary[],
+        modelId: string
+    ): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
-        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, modelId ?? DEFAULT_MODEL, currentPrompt);
+        return this.makeRequest(
+            [{ role: "user", content: improvementPrompt }],
+            0.7,
+            modelId,
+            currentPrompt
+        );
     }
 }
 

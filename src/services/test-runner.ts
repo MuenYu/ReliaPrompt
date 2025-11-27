@@ -8,12 +8,12 @@ import {
     TestCase,
     Prompt,
 } from "../database";
-import { getConfiguredClients, LLMClient, ModelSelection } from "../llm-clients";
+import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
 import { compareJSON } from "../utils/json-comparison";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 // Represents a model to run tests against
-interface ModelRunner {
+export interface ModelRunner {
     client: LLMClient;
     modelId: string;
     displayName: string; // e.g., "OpenAI (gpt-4o)"
@@ -106,7 +106,7 @@ function getModelRunnersFromSelections(selectedModels: ModelSelection[]): ModelR
     return runners;
 }
 
-function getDefaultModelRunners(): ModelRunner[] {
+function getSavedModelRunners(): ModelRunner[] {
     // Check for saved selected_models in config
     const savedModelsJson = getConfig("selected_models");
     if (savedModelsJson) {
@@ -116,17 +116,13 @@ function getDefaultModelRunners(): ModelRunner[] {
                 return getModelRunnersFromSelections(savedModels);
             }
         } catch {
-            // Fall through to default behavior
+            // Fall through to throw error
         }
     }
 
-    // Default: use one default model per configured client
-    const clients = getConfiguredClients();
-    return clients.map((client) => ({
-        client,
-        modelId: "", // Empty string means use client's default model
-        displayName: client.name,
-    }));
+    throw new ConfigurationError(
+        "No models selected. Please select at least one model in settings before running tests."
+    );
 }
 
 export async function startTestRun(
@@ -141,10 +137,10 @@ export async function startTestRun(
     // Use requireEntity for explicit assertion with clear error message
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
-    // Get model runners based on selection or defaults
+    // Get model runners based on selection or saved settings
     const modelRunners = selectedModels && selectedModels.length > 0
         ? getModelRunnersFromSelections(selectedModels)
-        : getDefaultModelRunners();
+        : getSavedModelRunners();
 
     if (modelRunners.length === 0) {
         throw new ConfigurationError(
@@ -196,9 +192,7 @@ async function runTests(
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
-                    // Pass modelId to complete - empty string means use default
-                    const modelId = runner.modelId || undefined;
-                    const actualOutput = await runner.client.complete(prompt.content, testCase.input, modelId);
+                    const actualOutput = await runner.client.complete(prompt.content, testCase.input, runner.modelId);
                     const comparison = compareJSON(testCase.expectedOutput, actualOutput);
 
                     const isCorrect = comparison.isEqual;
@@ -298,12 +292,12 @@ async function runTests(
 export async function runTestsForPromptContent(
     promptContent: string,
     testCases: TestCase[],
-    clients: LLMClient[],
+    modelRunners: ModelRunner[],
     runsPerTest: number = DEFAULT_RUNS_PER_TEST
 ): Promise<{ score: number; results: LLMTestResult[] }> {
     const llmResults: LLMTestResult[] = [];
 
-    const llmPromises = clients.map(async (client) => {
+    const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
         let llmCorrectCount = 0;
         let llmTotalRuns = 0;
@@ -314,7 +308,7 @@ export async function runTestsForPromptContent(
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
-                    const actualOutput = await client.complete(promptContent, testCase.input);
+                    const actualOutput = await runner.client.complete(promptContent, testCase.input, runner.modelId);
                     const comparison = compareJSON(testCase.expectedOutput, actualOutput);
 
                     const isCorrect = comparison.isEqual;
@@ -354,7 +348,7 @@ export async function runTestsForPromptContent(
         testCaseResults.push(...results);
 
         return {
-            llmName: client.name,
+            llmName: runner.displayName,
             correctCount: llmCorrectCount,
             totalRuns: llmTotalRuns,
             score: llmTotalRuns > 0 ? Math.round((llmCorrectCount / llmTotalRuns) * 100) : 0,
