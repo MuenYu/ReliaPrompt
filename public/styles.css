@@ -1186,7 +1186,8 @@ button.small,
     z-index: 100;
 }
 
-.score-badge.low {
+.score-badge.low,
+.score-badge.failure {
     background: #fee2e2;
     color: #991b1b;
 }
@@ -1194,6 +1195,11 @@ button.small,
 .score-badge.medium {
     background: #fef3c7;
     color: #92400e;
+}
+
+.score-badge.success {
+    background: #d1fae5;
+    color: #065f46;
 }
 
 .score-badge.best {

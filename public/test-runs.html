@@ -920,7 +920,7 @@
                         .map((tc, i) => {
                             const avgScore = tc.averageScore || 0;
                             const scoreClass =
-                                avgScore >= 80 ? "success" : avgScore >= 50 ? "medium" : "failure";
+                                avgScore >= 80 ? "" : avgScore >= 50 ? "medium" : "low";
 
                             // Individual runs section
                             let runsHtml = "";
