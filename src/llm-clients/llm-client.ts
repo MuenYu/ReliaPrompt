@@ -1,8 +1,15 @@
+export interface ModelInfo {
+    id: string;
+    name: string;
+    provider: string;
+}
+
 export interface LLMClient {
     name: string;
     isConfigured(): boolean;
-    complete(systemPrompt: string, userMessage: string): Promise<string>;
-    improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string>;
+    listModels(): Promise<ModelInfo[]>;
+    complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string>;
+    improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId?: string): Promise<string>;
 }
 
 export interface TestResultSummary {
@@ -33,6 +40,18 @@ export function setActiveClients(clients: LLMClient[]): void {
 
 export function getConfiguredClients(): LLMClient[] {
     return activeClients.filter((client) => client.isConfigured());
+}
+
+export interface ModelSelection {
+    provider: string;
+    modelId: string;
+}
+
+export async function getAllAvailableModels(): Promise<ModelInfo[]> {
+    const configuredClients = getConfiguredClients();
+    const modelPromises = configuredClients.map((client) => client.listModels());
+    const modelArrays = await Promise.all(modelPromises);
+    return modelArrays.flat();
 }
 
 export function buildImprovementPrompt(

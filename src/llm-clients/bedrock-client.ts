@@ -1,7 +1,13 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
-import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import {
+    BedrockClient as AWSBedrockClient,
+    ListFoundationModelsCommand,
+} from "@aws-sdk/client-bedrock";
+import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
+
+const DEFAULT_MODEL = "anthropic.claude-3-sonnet-20240229-v1:0";
 
 /**
  * Response structure from Bedrock Claude models.
@@ -22,27 +28,63 @@ interface BedrockClaudeResponse {
 
 export class BedrockClient implements LLMClient {
     name = "Bedrock";
-    private client: BedrockRuntimeClient | null = null;
+    private runtimeClient: BedrockRuntimeClient | null = null;
+    private bedrockClient: AWSBedrockClient | null = null;
 
-    private getClient(): BedrockRuntimeClient | null {
+    private getCredentials(): {
+        accessKeyId: string;
+        secretAccessKey: string;
+        sessionToken?: string;
+        region: string;
+    } | null {
         const accessKeyId = getConfig("bedrock_access_key_id");
         const secretAccessKey = getConfig("bedrock_secret_access_key");
-        const region = getConfig("bedrock_region") || "us-east-1";
+        const sessionToken = getConfig("bedrock_session_token");
+        const region = getConfig("bedrock_region") || "ap-southeast-2";
 
         if (!accessKeyId || !secretAccessKey) {
             return null;
         }
 
-        if (!this.client) {
-            this.client = new BedrockRuntimeClient({
-                region,
+        return { accessKeyId, secretAccessKey, sessionToken: sessionToken || undefined, region };
+    }
+
+    private getRuntimeClient(): BedrockRuntimeClient | null {
+        const creds = this.getCredentials();
+        if (!creds) {
+            return null;
+        }
+
+        if (!this.runtimeClient) {
+            this.runtimeClient = new BedrockRuntimeClient({
+                region: creds.region,
                 credentials: {
-                    accessKeyId,
-                    secretAccessKey,
+                    accessKeyId: creds.accessKeyId,
+                    secretAccessKey: creds.secretAccessKey,
+                    sessionToken: creds.sessionToken,
                 },
             });
         }
-        return this.client;
+        return this.runtimeClient;
+    }
+
+    private getBedrockClient(): AWSBedrockClient | null {
+        const creds = this.getCredentials();
+        if (!creds) {
+            return null;
+        }
+
+        if (!this.bedrockClient) {
+            this.bedrockClient = new AWSBedrockClient({
+                region: creds.region,
+                credentials: {
+                    accessKeyId: creds.accessKeyId,
+                    secretAccessKey: creds.secretAccessKey,
+                    sessionToken: creds.sessionToken,
+                },
+            });
+        }
+        return this.bedrockClient;
     }
 
     isConfigured(): boolean {
@@ -50,24 +92,58 @@ export class BedrockClient implements LLMClient {
     }
 
     /**
-     * Reset the cached client. Call this when the config changes.
+     * Reset the cached clients. Call this when the config changes.
      */
     reset(): void {
-        this.client = null;
+        this.runtimeClient = null;
+        this.bedrockClient = null;
+    }
+
+    async listModels(): Promise<ModelInfo[]> {
+        const client = this.getBedrockClient();
+        if (!client) {
+            return [];
+        }
+
+        try {
+            const command = new ListFoundationModelsCommand({
+                byOutputModality: "TEXT",
+                byInferenceType: "ON_DEMAND",
+            });
+
+            const response = await client.send(command);
+            const models: ModelInfo[] = [];
+
+            for (const model of response.modelSummaries ?? []) {
+                if (model.modelId && model.modelName) {
+                    models.push({
+                        id: model.modelId,
+                        name: model.modelName,
+                        provider: this.name,
+                    });
+                }
+            }
+
+            // Sort by model name
+            models.sort((a, b) => a.name.localeCompare(b.name));
+            return models;
+        } catch {
+            // Return empty array if API call fails
+            return [];
+        }
     }
 
     private async makeRequest(
         messages: Array<{ role: "user"; content: string }>,
         temperature: number,
+        modelId: string = DEFAULT_MODEL,
         systemPrompt?: string,
         defaultValue: string = ""
     ): Promise<string> {
-        const client = this.getClient();
+        const client = this.getRuntimeClient();
         if (!client) {
             throw new ConfigurationError("Bedrock credentials not configured");
         }
-
-        const modelId = "anthropic.claude-3-sonnet-20240229-v1:0";
 
         const payload: {
             anthropic_version: string;
@@ -101,15 +177,25 @@ export class BedrockClient implements LLMClient {
         return responseBody.content?.[0]?.text ?? defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string): Promise<string> {
-        return this.makeRequest([{ role: "user", content: userMessage }], 0.1, systemPrompt);
+    async complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string> {
+        return this.makeRequest(
+            [{ role: "user", content: userMessage }],
+            0.1,
+            modelId ?? DEFAULT_MODEL,
+            systemPrompt
+        );
     }
 
-    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
+    async improvePrompt(
+        currentPrompt: string,
+        testResults: TestResultSummary[],
+        modelId?: string
+    ): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
         return this.makeRequest(
             [{ role: "user", content: improvementPrompt }],
             0.7,
+            modelId ?? DEFAULT_MODEL,
             undefined,
             currentPrompt
         );

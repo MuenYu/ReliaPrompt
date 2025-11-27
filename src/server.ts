@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
 import cors from "cors";
 import path from "path";
 
@@ -10,7 +10,6 @@ import {
     getLatestPrompts,
     getPromptVersions,
     getPromptVersionsByGroupId,
-    getPromptById,
     getPromptByIdOrFail,
     getAllPrompts,
     deletePrompt,
@@ -19,12 +18,16 @@ import {
     getTestCasesForPrompt,
     deleteTestCase,
     updateTestCase,
-    getTestJobById,
     getTestJobByIdOrFail,
     getTestJobsForPrompt,
     getImprovementJobByIdOrFail,
 } from "./database";
-import { refreshClients, getConfiguredClients } from "./llm-clients";
+import {
+    refreshClients,
+    getConfiguredClients,
+    getAllAvailableModels,
+    ModelSelection,
+} from "./llm-clients";
 import { startTestRun, getTestProgress, TestResults } from "./services/test-runner";
 import { startImprovement, getImprovementProgress } from "./services/improvement-service";
 import { getErrorMessage, getErrorStatusCode, NotFoundError, ValidationError } from "./errors";
@@ -64,8 +67,10 @@ app.post("/api/config", (req, res) => {
             openai_api_key,
             bedrock_access_key_id,
             bedrock_secret_access_key,
+            bedrock_session_token,
             bedrock_region,
             deepseek_api_key,
+            selected_models,
         } = req.body;
 
         if (openai_api_key !== undefined) setConfig("openai_api_key", openai_api_key);
@@ -73,9 +78,18 @@ app.post("/api/config", (req, res) => {
             setConfig("bedrock_access_key_id", bedrock_access_key_id);
         if (bedrock_secret_access_key !== undefined)
             setConfig("bedrock_secret_access_key", bedrock_secret_access_key);
+        if (bedrock_session_token !== undefined)
+            setConfig("bedrock_session_token", bedrock_session_token);
         if (bedrock_region !== undefined)
-            setConfig("bedrock_region", bedrock_region || "us-east-1");
+            setConfig("bedrock_region", bedrock_region || "ap-southeast-2");
         if (deepseek_api_key !== undefined) setConfig("deepseek_api_key", deepseek_api_key);
+        if (selected_models !== undefined) {
+            // Store selected models as JSON string
+            const modelsJson = Array.isArray(selected_models)
+                ? JSON.stringify(selected_models)
+                : selected_models;
+            setConfig("selected_models", modelsJson);
+        }
 
         refreshClients();
 
@@ -92,6 +106,15 @@ app.get("/api/config/providers", (req, res) => {
             providers: clients.map((c) => c.name),
             count: clients.length,
         });
+    } catch (error) {
+        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
+    }
+});
+
+app.get("/api/models", async (req, res) => {
+    try {
+        const models = await getAllAvailableModels();
+        res.json(models);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
@@ -256,7 +279,7 @@ app.delete("/api/test-cases/:id", (req, res) => {
 
 app.post("/api/test/run", async (req, res) => {
     try {
-        const { promptId, runsPerTest } = req.body;
+        const { promptId, runsPerTest, selectedModels } = req.body;
 
         if (!promptId) {
             throw new ValidationError("promptId is required");
@@ -271,7 +294,13 @@ app.post("/api/test/run", async (req, res) => {
             throw new ValidationError("runsPerTest must be a number between 1 and 100");
         }
 
-        const jobId = await startTestRun(promptId, runs);
+        // Parse selectedModels - can be passed as array or retrieved from config
+        let models: ModelSelection[] | undefined;
+        if (selectedModels && Array.isArray(selectedModels) && selectedModels.length > 0) {
+            models = selectedModels as ModelSelection[];
+        }
+
+        const jobId = await startTestRun(promptId, runs, models);
         res.json({ jobId });
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });

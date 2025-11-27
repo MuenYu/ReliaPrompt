@@ -1,6 +1,15 @@
-import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError, LLMError } from "../errors";
+
+const DEFAULT_MODEL = "deepseek-chat";
+
+// Deepseek available models (hardcoded since no listing API)
+const DEEPSEEK_MODELS: ModelInfo[] = [
+    { id: "deepseek-chat", name: "DeepSeek Chat", provider: "Deepseek" },
+    { id: "deepseek-coder", name: "DeepSeek Coder", provider: "Deepseek" },
+    { id: "deepseek-reasoner", name: "DeepSeek Reasoner", provider: "Deepseek" },
+];
 
 export class DeepseekClient implements LLMClient {
     name = "Deepseek";
@@ -14,9 +23,17 @@ export class DeepseekClient implements LLMClient {
         return !!this.getApiKey();
     }
 
+    async listModels(): Promise<ModelInfo[]> {
+        if (!this.isConfigured()) {
+            return [];
+        }
+        return DEEPSEEK_MODELS;
+    }
+
     private async makeRequest(
         messages: Array<{ role: "system" | "user"; content: string }>,
         temperature: number,
+        modelId: string = DEFAULT_MODEL,
         defaultValue: string = ""
     ): Promise<string> {
         const apiKey = this.getApiKey();
@@ -31,7 +48,7 @@ export class DeepseekClient implements LLMClient {
                 Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: "deepseek-chat",
+                model: modelId,
                 messages,
                 temperature,
                 max_tokens: 4096,
@@ -49,19 +66,20 @@ export class DeepseekClient implements LLMClient {
         return data.choices?.[0]?.message?.content ?? defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string): Promise<string> {
+    async complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
-            0.1
+            0.1,
+            modelId ?? DEFAULT_MODEL
         );
     }
 
-    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
+    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId?: string): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
-        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, currentPrompt);
+        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, modelId ?? DEFAULT_MODEL, currentPrompt);
     }
 }
 

@@ -4,12 +4,20 @@ import {
     createTestResult,
     getTestCasesForPrompt,
     getPromptByIdOrFail,
+    getConfig,
     TestCase,
     Prompt,
 } from "../database";
-import { getConfiguredClients, LLMClient } from "../llm-clients";
+import { getConfiguredClients, LLMClient, ModelSelection } from "../llm-clients";
 import { compareJSON } from "../utils/json-comparison";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
+
+// Represents a model to run tests against
+interface ModelRunner {
+    client: LLMClient;
+    modelId: string;
+    displayName: string; // e.g., "OpenAI (gpt-4o)"
+}
 
 const DEFAULT_RUNS_PER_TEST = 1;
 
@@ -64,11 +72,11 @@ async function handleTestRun(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    clients: LLMClient[],
+    modelRunners: ModelRunner[],
     runsPerTest: number
 ): Promise<void> {
     try {
-        await runTests(jobId, prompt, testCases, clients, runsPerTest);
+        await runTests(jobId, prompt, testCases, modelRunners, runsPerTest);
     } catch (error) {
         const progress = activeJobs.get(jobId);
         if (progress) {
@@ -79,9 +87,52 @@ async function handleTestRun(
     }
 }
 
+function getModelRunnersFromSelections(selectedModels: ModelSelection[]): ModelRunner[] {
+    const clients = getConfiguredClients();
+    const clientMap = new Map(clients.map((c) => [c.name, c]));
+    const runners: ModelRunner[] = [];
+
+    for (const selection of selectedModels) {
+        const client = clientMap.get(selection.provider);
+        if (client) {
+            runners.push({
+                client,
+                modelId: selection.modelId,
+                displayName: `${selection.provider} (${selection.modelId})`,
+            });
+        }
+    }
+
+    return runners;
+}
+
+function getDefaultModelRunners(): ModelRunner[] {
+    // Check for saved selected_models in config
+    const savedModelsJson = getConfig("selected_models");
+    if (savedModelsJson) {
+        try {
+            const savedModels = JSON.parse(savedModelsJson) as ModelSelection[];
+            if (Array.isArray(savedModels) && savedModels.length > 0) {
+                return getModelRunnersFromSelections(savedModels);
+            }
+        } catch {
+            // Fall through to default behavior
+        }
+    }
+
+    // Default: use one default model per configured client
+    const clients = getConfiguredClients();
+    return clients.map((client) => ({
+        client,
+        modelId: "", // Empty string means use client's default model
+        displayName: client.name,
+    }));
+}
+
 export async function startTestRun(
     promptId: number,
-    runsPerTest: number = DEFAULT_RUNS_PER_TEST
+    runsPerTest: number = DEFAULT_RUNS_PER_TEST,
+    selectedModels?: ModelSelection[]
 ): Promise<string> {
     // Use OrFail variant - throws NotFoundError if prompt doesn't exist
     const prompt = getPromptByIdOrFail(promptId);
@@ -90,15 +141,19 @@ export async function startTestRun(
     // Use requireEntity for explicit assertion with clear error message
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
-    const clients = getConfiguredClients();
-    if (clients.length === 0) {
+    // Get model runners based on selection or defaults
+    const modelRunners = selectedModels && selectedModels.length > 0
+        ? getModelRunnersFromSelections(selectedModels)
+        : getDefaultModelRunners();
+
+    if (modelRunners.length === 0) {
         throw new ConfigurationError(
-            "No LLM providers configured. Please add API keys in the config."
+            "No LLM models selected. Please select at least one model to run tests."
         );
     }
 
     const jobId = crypto.randomUUID();
-    const totalTests = testCases.length * clients.length * runsPerTest;
+    const totalTests = testCases.length * modelRunners.length * runsPerTest;
 
     createTestJob(jobId, promptId, totalTests);
 
@@ -111,7 +166,7 @@ export async function startTestRun(
     };
     activeJobs.set(jobId, progress);
 
-    handleTestRun(jobId, prompt, testCases, clients, runsPerTest);
+    handleTestRun(jobId, prompt, testCases, modelRunners, runsPerTest);
 
     return jobId;
 }
@@ -120,7 +175,7 @@ async function runTests(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    clients: LLMClient[],
+    modelRunners: ModelRunner[],
     runsPerTest: number = DEFAULT_RUNS_PER_TEST
 ): Promise<void> {
     const progress = activeJobs.get(jobId)!;
@@ -130,7 +185,7 @@ async function runTests(
     const llmResults: LLMTestResult[] = [];
     let completedTests = 0;
 
-    const llmPromises = clients.map(async (client) => {
+    const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
         let llmCorrectCount = 0;
         let llmTotalRuns = 0;
@@ -141,7 +196,9 @@ async function runTests(
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
-                    const actualOutput = await client.complete(prompt.content, testCase.input);
+                    // Pass modelId to complete - empty string means use default
+                    const modelId = runner.modelId || undefined;
+                    const actualOutput = await runner.client.complete(prompt.content, testCase.input, modelId);
                     const comparison = compareJSON(testCase.expectedOutput, actualOutput);
 
                     const isCorrect = comparison.isEqual;
@@ -161,7 +218,7 @@ async function runTests(
                     createTestResult(
                         jobId,
                         testCase.id,
-                        client.name,
+                        runner.displayName,
                         runNumber,
                         actualOutput,
                         isCorrect,
@@ -180,7 +237,7 @@ async function runTests(
                     createTestResult(
                         jobId,
                         testCase.id,
-                        client.name,
+                        runner.displayName,
                         runNumber,
                         null,
                         false,
@@ -207,7 +264,7 @@ async function runTests(
         testCaseResults.push(...results);
 
         return {
-            llmName: client.name,
+            llmName: runner.displayName,
             correctCount: llmCorrectCount,
             totalRuns: llmTotalRuns,
             score: llmTotalRuns > 0 ? Math.round((llmCorrectCount / llmTotalRuns) * 100) : 0,

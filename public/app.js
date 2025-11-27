@@ -74,6 +74,144 @@ const expandedGroups = new Set();
 // Cache for prompt versions (keyed by promptGroupId)
 const versionsCache = {};
 
+// Model selection state
+let availableModels = [];
+let selectedModels = [];
+
+async function loadAvailableModels() {
+    try {
+        const res = await fetch("/api/models");
+        if (res.ok) {
+            availableModels = await res.json();
+        } else {
+            availableModels = [];
+        }
+    } catch (error) {
+        console.error("Error loading available models:", error);
+        availableModels = [];
+    }
+    return availableModels;
+}
+
+async function loadSelectedModels() {
+    try {
+        const res = await fetch("/api/config");
+        if (res.ok) {
+            const config = await res.json();
+            if (config.selected_models) {
+                try {
+                    selectedModels = JSON.parse(config.selected_models);
+                    if (!Array.isArray(selectedModels)) {
+                        selectedModels = [];
+                    }
+                } catch {
+                    selectedModels = [];
+                }
+            } else {
+                selectedModels = [];
+            }
+        }
+    } catch (error) {
+        console.error("Error loading selected models:", error);
+        selectedModels = [];
+    }
+    return selectedModels;
+}
+
+async function saveSelectedModels(models) {
+    selectedModels = models;
+    try {
+        const res = await fetch("/api/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ selected_models: models }),
+        });
+        return res.ok;
+    } catch (error) {
+        console.error("Error saving selected models:", error);
+        return false;
+    }
+}
+
+function isModelSelected(provider, modelId) {
+    return selectedModels.some((m) => m.provider === provider && m.modelId === modelId);
+}
+
+function toggleModelSelection(provider, modelId) {
+    const index = selectedModels.findIndex((m) => m.provider === provider && m.modelId === modelId);
+    if (index >= 0) {
+        selectedModels.splice(index, 1);
+    } else {
+        selectedModels.push({ provider, modelId });
+    }
+    saveSelectedModels(selectedModels);
+    // Dispatch event so other pages can update
+    window.dispatchEvent(new CustomEvent("modelsSelectionChanged", { detail: { selectedModels } }));
+}
+
+function renderModelCheckboxes(containerId, filterProvider = null) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const modelsToShow = filterProvider
+        ? availableModels.filter((m) => m.provider === filterProvider)
+        : availableModels;
+
+    if (modelsToShow.length === 0) {
+        container.innerHTML =
+            '<div class="no-models">No models available. Configure API keys first.</div>';
+        return;
+    }
+
+    // Group by provider
+    const grouped = {};
+    for (const model of modelsToShow) {
+        if (!grouped[model.provider]) {
+            grouped[model.provider] = [];
+        }
+        grouped[model.provider].push(model);
+    }
+
+    let html = "";
+    for (const [provider, models] of Object.entries(grouped)) {
+        if (!filterProvider) {
+            html += `<div class="model-provider-group"><h4>${escapeHtml(provider)}</h4>`;
+        }
+        html += '<div class="model-list">';
+        for (const model of models) {
+            const isChecked = isModelSelected(model.provider, model.id);
+            html += `
+                <label class="model-checkbox">
+                    <input type="checkbox" 
+                           data-provider="${escapeHtml(model.provider)}" 
+                           data-model-id="${escapeHtml(model.id)}"
+                           ${isChecked ? "checked" : ""}>
+                    <span class="model-name">${escapeHtml(model.name)}</span>
+                </label>
+            `;
+        }
+        html += "</div>";
+        if (!filterProvider) {
+            html += "</div>";
+        }
+    }
+
+    container.innerHTML = html;
+
+    // Add event listeners
+    container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+            const provider = checkbox.dataset.provider;
+            const modelId = checkbox.dataset.modelId;
+            toggleModelSelection(provider, modelId);
+        });
+    });
+}
+
+function getSelectedModelsCount() {
+    return selectedModels.length;
+}
+
 // Helper to get the group ID from a prompt
 function getPromptGroupId(prompt) {
     return prompt.prompt_group_id || prompt.promptGroupId || prompt.id;
@@ -621,6 +759,11 @@ function closeConfigModal() {
     const overlay = document.getElementById("config-modal");
     if (overlay) {
         overlay.classList.remove("active");
+        // Clear any message when closing
+        const messageContainer = document.getElementById("config-message");
+        if (messageContainer) {
+            messageContainer.innerHTML = "";
+        }
     }
 }
 
@@ -641,6 +784,7 @@ async function loadConfigStatus() {
             "openai_api_key",
             "bedrock_access_key_id",
             "bedrock_secret_access_key",
+            "bedrock_session_token",
             "deepseek_api_key",
             "bedrock_region",
         ];
@@ -651,6 +795,26 @@ async function loadConfigStatus() {
                 input.value = config[field] || "";
             }
         }
+
+        // Load selected models from config
+        if (config.selected_models) {
+            try {
+                selectedModels = JSON.parse(config.selected_models);
+                if (!Array.isArray(selectedModels)) {
+                    selectedModels = [];
+                }
+            } catch {
+                selectedModels = [];
+            }
+        }
+
+        // Load available models and render checkboxes for each configured provider
+        await loadAvailableModels();
+
+        // Render model checkboxes for each provider
+        renderModelCheckboxes("openai-models", "OpenAI");
+        renderModelCheckboxes("bedrock-models", "Bedrock");
+        renderModelCheckboxes("deepseek-models", "Deepseek");
     } catch (error) {
         showAppMessage("Error loading configuration", "error");
     }
@@ -661,6 +825,19 @@ function updateConfigBadge(elementId, isConfigured) {
     if (badge) {
         badge.className = `status-badge ${isConfigured ? "configured" : "not-configured"}`;
         badge.textContent = isConfigured ? "Configured" : "Not configured";
+    }
+}
+
+function showConfigMessage(text, type) {
+    const container = document.getElementById("config-message");
+    if (!container) return;
+
+    container.innerHTML = `<div class="message ${type}">${escapeHtml(text)}</div>`;
+
+    if (type !== "info") {
+        setTimeout(() => {
+            container.innerHTML = "";
+        }, 5000);
     }
 }
 
@@ -682,14 +859,14 @@ async function saveConfig(e) {
         });
 
         if (res.ok) {
-            showAppMessage("Configuration saved successfully!", "success");
+            showConfigMessage("Configuration saved successfully!", "success");
             loadConfigStatus();
         } else {
             const error = await res.json();
-            showAppMessage(error.error || "Failed to save configuration", "error");
+            showConfigMessage(error.error || "Failed to save configuration", "error");
         }
     } catch (error) {
-        showAppMessage("Error saving configuration", "error");
+        showConfigMessage("Error saving configuration", "error");
     }
 }
 
@@ -878,6 +1055,7 @@ function getConfigModalHtml() {
                     </button>
                 </div>
                 <form id="config-form">
+                    <div id="config-message"></div>
                     <div class="modal-body">
                         <div class="provider-section">
                             <h3>
@@ -885,8 +1063,7 @@ function getConfigModalHtml() {
                                 <span id="openai-status" class="status-badge not-configured">Not configured</span>
                             </h3>
                             <div class="form-group">
-                                <label for="openai_api_key">API Key</label>
-                                <input type="text" id="openai_api_key" name="openai_api_key" placeholder="sk-..." />
+                                <input type="text" id="openai_api_key" name="openai_api_key" placeholder="API Key (sk-...)" />
                             </div>
                         </div>
 
@@ -896,16 +1073,16 @@ function getConfigModalHtml() {
                                 <span id="bedrock-status" class="status-badge not-configured">Not configured</span>
                             </h3>
                             <div class="form-group">
-                                <label for="bedrock_access_key_id">Access Key ID</label>
-                                <input type="text" id="bedrock_access_key_id" name="bedrock_access_key_id" placeholder="AKIA..." />
+                                <input type="text" id="bedrock_access_key_id" name="bedrock_access_key_id" placeholder="Access Key ID (AKIA...)" />
                             </div>
                             <div class="form-group">
-                                <label for="bedrock_secret_access_key">Secret Access Key</label>
-                                <input type="text" id="bedrock_secret_access_key" name="bedrock_secret_access_key" placeholder="..." />
+                                <input type="text" id="bedrock_secret_access_key" name="bedrock_secret_access_key" placeholder="Secret Access Key" />
                             </div>
                             <div class="form-group">
-                                <label for="bedrock_region">Region</label>
-                                <input type="text" id="bedrock_region" name="bedrock_region" placeholder="us-east-1" value="us-east-1" />
+                                <input type="text" id="bedrock_session_token" name="bedrock_session_token" placeholder="Session Token (optional)" />
+                            </div>
+                            <div class="form-group">
+                                <input type="text" id="bedrock_region" name="bedrock_region" placeholder="Region (e.g., ap-southeast-2)" value="ap-southeast-2" />
                             </div>
                         </div>
 
@@ -915,8 +1092,7 @@ function getConfigModalHtml() {
                                 <span id="deepseek-status" class="status-badge not-configured">Not configured</span>
                             </h3>
                             <div class="form-group">
-                                <label for="deepseek_api_key">API Key</label>
-                                <input type="text" id="deepseek_api_key" name="deepseek_api_key" placeholder="sk-..." />
+                                <input type="text" id="deepseek_api_key" name="deepseek_api_key" placeholder="API Key (sk-...)" />
                             </div>
                         </div>
                     </div>
@@ -1010,4 +1186,14 @@ window.AppUtils = {
     getConfigModalHtml,
     getNewPromptModalHtml,
     getViewPromptModalHtml,
+    // Model selection functions
+    loadAvailableModels,
+    loadSelectedModels,
+    saveSelectedModels,
+    isModelSelected,
+    toggleModelSelection,
+    renderModelCheckboxes,
+    getSelectedModelsCount,
+    getSelectedModels: () => selectedModels,
+    getAvailableModels: () => availableModels,
 };

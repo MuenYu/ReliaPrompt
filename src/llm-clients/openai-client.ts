@@ -1,7 +1,12 @@
 import OpenAI from "openai";
-import { LLMClient, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
+
+const DEFAULT_MODEL = "gpt-4o";
+
+// OpenAI chat model prefixes to filter relevant models
+const CHAT_MODEL_PREFIXES = ["gpt-4", "gpt-3.5", "o1", "o3"];
 
 export class OpenAIClient implements LLMClient {
     name = "OpenAI";
@@ -43,9 +48,43 @@ export class OpenAIClient implements LLMClient {
         this.client = null;
     }
 
+    async listModels(): Promise<ModelInfo[]> {
+        const client = this.getClient();
+        if (!client) {
+            return [];
+        }
+
+        try {
+            const response = await client.models.list();
+            const models: ModelInfo[] = [];
+
+            for await (const model of response) {
+                // Filter for chat models only
+                const isChatModel = CHAT_MODEL_PREFIXES.some((prefix) =>
+                    model.id.startsWith(prefix)
+                );
+                if (isChatModel) {
+                    models.push({
+                        id: model.id,
+                        name: model.id,
+                        provider: this.name,
+                    });
+                }
+            }
+
+            // Sort by model name
+            models.sort((a, b) => a.name.localeCompare(b.name));
+            return models;
+        } catch {
+            // Return empty array if API call fails
+            return [];
+        }
+    }
+
     private async makeRequest(
         messages: Array<{ role: "system" | "user"; content: string }>,
         temperature: number,
+        modelId: string = DEFAULT_MODEL,
         defaultValue: string = ""
     ): Promise<string> {
         const client = this.getClient();
@@ -54,7 +93,7 @@ export class OpenAIClient implements LLMClient {
         }
 
         const response = await client.chat.completions.create({
-            model: "gpt-4o",
+            model: modelId,
             messages,
             temperature,
             max_tokens: 4096,
@@ -63,19 +102,20 @@ export class OpenAIClient implements LLMClient {
         return response.choices[0]?.message?.content ?? defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string): Promise<string> {
+    async complete(systemPrompt: string, userMessage: string, modelId?: string): Promise<string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
-            0.1
+            0.1,
+            modelId ?? DEFAULT_MODEL
         );
     }
 
-    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
+    async improvePrompt(currentPrompt: string, testResults: TestResultSummary[], modelId?: string): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
-        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, currentPrompt);
+        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, modelId ?? DEFAULT_MODEL, currentPrompt);
     }
 }
 
