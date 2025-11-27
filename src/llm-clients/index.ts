@@ -12,6 +12,8 @@ const allClients: LLMClient[] = [openaiClient, bedrockClient, deepseekClient];
 setActiveClients(allClients);
 
 export function refreshClients(): void {
+    // Reset cached clients when config changes
+    openaiClient.reset();
     setActiveClients(allClients);
 }
 

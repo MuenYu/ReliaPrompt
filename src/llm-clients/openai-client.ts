@@ -6,20 +6,41 @@ import { ConfigurationError } from "../errors";
 export class OpenAIClient implements LLMClient {
     name = "OpenAI";
     private client: OpenAI | null = null;
+    private cachedApiKey: string | null = null;
 
     private getClient(): OpenAI | null {
-        const apiKey = getConfig("openai_api_key");
-        if (!apiKey) {
+        // Only read config if we don't have a cached key or client
+        if (this.cachedApiKey === null) {
+            this.cachedApiKey = getConfig("openai_api_key");
+        }
+
+        if (!this.cachedApiKey) {
             return null;
         }
+
+        // Create client if it doesn't exist
         if (!this.client) {
-            this.client = new OpenAI({ apiKey });
+            this.client = new OpenAI({ apiKey: this.cachedApiKey });
         }
+
         return this.client;
     }
 
     isConfigured(): boolean {
-        return !!getConfig("openai_api_key");
+        // Use cached key if available, otherwise read from config
+        if (this.cachedApiKey !== null) {
+            return !!this.cachedApiKey;
+        }
+        this.cachedApiKey = getConfig("openai_api_key");
+        return !!this.cachedApiKey;
+    }
+
+    /**
+     * Reset the cached API key and client. Call this when the config changes.
+     */
+    reset(): void {
+        this.cachedApiKey = null;
+        this.client = null;
     }
 
     async complete(systemPrompt: string, userMessage: string): Promise<string> {
