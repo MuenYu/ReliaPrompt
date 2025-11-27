@@ -345,6 +345,10 @@ export function createTestResult(
     runNumber: number,
     actualOutput: string | null,
     isCorrect: boolean,
+    score: number,
+    expectedFound: number,
+    expectedTotal: number,
+    unexpectedCount: number,
     error?: string,
     durationMs?: number
 ) {
@@ -359,6 +363,10 @@ export function createTestResult(
                 runNumber,
                 actualOutput,
                 isCorrect: isCorrect ? 1 : 0,
+                score,
+                expectedFound,
+                expectedTotal,
+                unexpectedCount,
                 error: error ?? null,
                 durationMs: durationMs ?? null,
                 createdAt,

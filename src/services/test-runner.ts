@@ -43,7 +43,7 @@ export interface LLMTestResult {
     llmName: string;
     correctCount: number;
     totalRuns: number;
-    score: number; // 0-100
+    score: number; // 0-100 average score across all runs
     testCaseResults: TestCaseResult[];
     durationStats?: {
         minMs: number;
@@ -58,12 +58,17 @@ export interface TestCaseResult {
     expectedOutput: string;
     runs: RunResult[];
     correctRuns: number;
+    averageScore: number; // Average score across all runs for this test case
 }
 
 export interface RunResult {
     runNumber: number;
     actualOutput: string | null;
     isCorrect: boolean;
+    score: number; // 0-100 percentage score
+    expectedFound: number;
+    expectedTotal: number;
+    unexpectedCount: number;
     error?: string;
     durationMs?: number;
 }
@@ -189,12 +194,14 @@ async function runTests(
 
     const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
+        let llmTotalScore = 0;
         let llmCorrectCount = 0;
         let llmTotalRuns = 0;
 
         const testCasePromises = testCases.map(async (testCase) => {
             const runs: RunResult[] = [];
             let correctRuns = 0;
+            let totalScore = 0;
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
@@ -208,12 +215,18 @@ async function runTests(
                         correctRuns++;
                         llmCorrectCount++;
                     }
+                    totalScore += comparison.score;
+                    llmTotalScore += comparison.score;
                     llmTotalRuns++;
 
                     runs.push({
                         runNumber,
                         actualOutput,
                         isCorrect,
+                        score: comparison.score,
+                        expectedFound: comparison.expectedFound,
+                        expectedTotal: comparison.expectedTotal,
+                        unexpectedCount: comparison.unexpectedCount,
                         error: comparison.error,
                         durationMs,
                     });
@@ -225,6 +238,10 @@ async function runTests(
                         runNumber,
                         actualOutput,
                         isCorrect,
+                        comparison.score,
+                        comparison.expectedFound,
+                        comparison.expectedTotal,
+                        comparison.unexpectedCount,
                         comparison.error,
                         durationMs
                     );
@@ -235,6 +252,10 @@ async function runTests(
                         runNumber,
                         actualOutput: null,
                         isCorrect: false,
+                        score: 0,
+                        expectedFound: 0,
+                        expectedTotal: 0,
+                        unexpectedCount: 0,
                         error: errorMessage,
                     });
 
@@ -245,6 +266,10 @@ async function runTests(
                         runNumber,
                         null,
                         false,
+                        0,
+                        0,
+                        0,
+                        0,
                         errorMessage
                     );
                 }
@@ -255,12 +280,15 @@ async function runTests(
                 updateTestJob(jobId, { completedTests: completedTests });
             }
 
+            const averageScore = runs.length > 0 ? Math.round(totalScore / runs.length) : 0;
+
             return {
                 testCaseId: testCase.id,
                 input: testCase.input,
                 expectedOutput: testCase.expectedOutput,
                 runs,
                 correctRuns,
+                averageScore,
             } as TestCaseResult;
         });
 
@@ -277,11 +305,14 @@ async function runTests(
             avgMs: Math.round(allDurations.reduce((a, b) => a + b, 0) / allDurations.length),
         } : undefined;
 
+        // Calculate average score across all runs
+        const averageScore = llmTotalRuns > 0 ? Math.round(llmTotalScore / llmTotalRuns) : 0;
+
         return {
             llmName: runner.displayName,
             correctCount: llmCorrectCount,
             totalRuns: llmTotalRuns,
-            score: llmTotalRuns > 0 ? Math.round((llmCorrectCount / llmTotalRuns) * 100) : 0,
+            score: averageScore,
             testCaseResults,
             durationStats,
         } as LLMTestResult;
@@ -290,9 +321,9 @@ async function runTests(
     const results = await Promise.all(llmPromises);
     llmResults.push(...results);
 
-    const totalCorrect = llmResults.reduce((sum, r) => sum + r.correctCount, 0);
-    const totalRuns = llmResults.reduce((sum, r) => sum + r.totalRuns, 0);
-    const overallScore = totalRuns > 0 ? Math.round((totalCorrect / totalRuns) * 100) : 0;
+    // Calculate overall score as average of all LLM scores
+    const totalScore = llmResults.reduce((sum, r) => sum + r.score, 0);
+    const overallScore = llmResults.length > 0 ? Math.round(totalScore / llmResults.length) : 0;
 
     const testResults: TestResults = {
         promptId: prompt.id,
@@ -320,12 +351,14 @@ export async function runTestsForPromptContent(
 
     const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
+        let llmTotalScore = 0;
         let llmCorrectCount = 0;
         let llmTotalRuns = 0;
 
         const testCasePromises = testCases.map(async (testCase) => {
             const runs: RunResult[] = [];
             let correctRuns = 0;
+            let totalScore = 0;
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
@@ -339,12 +372,18 @@ export async function runTestsForPromptContent(
                         correctRuns++;
                         llmCorrectCount++;
                     }
+                    totalScore += comparison.score;
+                    llmTotalScore += comparison.score;
                     llmTotalRuns++;
 
                     runs.push({
                         runNumber,
                         actualOutput,
                         isCorrect,
+                        score: comparison.score,
+                        expectedFound: comparison.expectedFound,
+                        expectedTotal: comparison.expectedTotal,
+                        unexpectedCount: comparison.unexpectedCount,
                         error: comparison.error,
                         durationMs,
                     });
@@ -354,10 +393,16 @@ export async function runTestsForPromptContent(
                         runNumber,
                         actualOutput: null,
                         isCorrect: false,
+                        score: 0,
+                        expectedFound: 0,
+                        expectedTotal: 0,
+                        unexpectedCount: 0,
                         error: getErrorMessage(error),
                     });
                 }
             }
+
+            const averageScore = runs.length > 0 ? Math.round(totalScore / runs.length) : 0;
 
             return {
                 testCaseId: testCase.id,
@@ -365,6 +410,7 @@ export async function runTestsForPromptContent(
                 expectedOutput: testCase.expectedOutput,
                 runs,
                 correctRuns,
+                averageScore,
             } as TestCaseResult;
         });
 
@@ -381,11 +427,14 @@ export async function runTestsForPromptContent(
             avgMs: Math.round(allDurations.reduce((a, b) => a + b, 0) / allDurations.length),
         } : undefined;
 
+        // Calculate average score across all runs
+        const averageScore = llmTotalRuns > 0 ? Math.round(llmTotalScore / llmTotalRuns) : 0;
+
         return {
             llmName: runner.displayName,
             correctCount: llmCorrectCount,
             totalRuns: llmTotalRuns,
-            score: llmTotalRuns > 0 ? Math.round((llmCorrectCount / llmTotalRuns) * 100) : 0,
+            score: averageScore,
             testCaseResults,
             durationStats,
         } as LLMTestResult;
@@ -394,9 +443,9 @@ export async function runTestsForPromptContent(
     const results = await Promise.all(llmPromises);
     llmResults.push(...results);
 
-    const totalCorrect = llmResults.reduce((sum, r) => sum + r.correctCount, 0);
-    const totalRuns = llmResults.reduce((sum, r) => sum + r.totalRuns, 0);
-    const score = totalRuns > 0 ? Math.round((totalCorrect / totalRuns) * 100) : 0;
+    // Calculate overall score as average of all LLM scores
+    const totalScore = llmResults.reduce((sum, r) => sum + r.score, 0);
+    const score = llmResults.length > 0 ? Math.round(totalScore / llmResults.length) : 0;
 
     return { score, results: llmResults };
 }
@@ -407,6 +456,10 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         expectedOutput: string;
         actualOutput: string | null;
         isCorrect: boolean;
+        score: number;
+        expectedFound: number;
+        expectedTotal: number;
+        unexpectedCount: number;
         error?: string;
     }> = [];
 
@@ -415,7 +468,15 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         {
             input: string;
             expectedOutput: string;
-            outputs: Array<{ output: string | null; isCorrect: boolean; error?: string }>;
+            outputs: Array<{
+                output: string | null;
+                isCorrect: boolean;
+                score: number;
+                expectedFound: number;
+                expectedTotal: number;
+                unexpectedCount: number;
+                error?: string;
+            }>;
         }
     >();
 
@@ -434,6 +495,10 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 tc.outputs.push({
                     output: run.actualOutput,
                     isCorrect: run.isCorrect,
+                    score: run.score,
+                    expectedFound: run.expectedFound,
+                    expectedTotal: run.expectedTotal,
+                    unexpectedCount: run.unexpectedCount,
                     error: run.error,
                 });
             }
@@ -451,6 +516,10 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 expectedOutput: tc.expectedOutput,
                 actualOutput: representative.output,
                 isCorrect: false,
+                score: representative.score,
+                expectedFound: representative.expectedFound,
+                expectedTotal: representative.expectedTotal,
+                unexpectedCount: representative.unexpectedCount,
                 error: representative.error,
             });
         } else if (anyCorrect) {
@@ -460,6 +529,10 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 expectedOutput: tc.expectedOutput,
                 actualOutput: correct.output,
                 isCorrect: true,
+                score: correct.score,
+                expectedFound: correct.expectedFound,
+                expectedTotal: correct.expectedTotal,
+                unexpectedCount: correct.unexpectedCount,
             });
         }
     }

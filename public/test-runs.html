@@ -132,7 +132,11 @@
                             <div class="model-selection-section" style="margin-bottom: 16px">
                                 <label style="display: block; margin-bottom: 8px; font-weight: 500">
                                     Models to test:
-                                    <span id="selected-models-count" style="font-weight: normal; color: var(--color-text-muted)">(0 selected)</span>
+                                    <span
+                                        id="selected-models-count"
+                                        style="font-weight: normal; color: var(--color-text-muted)"
+                                        >(0 selected)</span
+                                    >
                                 </label>
                                 <div id="test-models-selection" class="model-selection-container">
                                     <div class="no-models">Loading models...</div>
@@ -529,14 +533,18 @@
 
             function updateSelectedModelsCount() {
                 const count = AppUtils.getSelectedModelsCount();
-                document.getElementById("selected-models-count").textContent = `(${count} selected)`;
+                document.getElementById("selected-models-count").textContent =
+                    `(${count} selected)`;
             }
 
             function updateRunButtonState() {
                 const countEl = document.getElementById("test-case-count");
-                const testCaseCount = countEl.dataset.count ? parseInt(countEl.dataset.count, 10) : 0;
+                const testCaseCount = countEl.dataset.count
+                    ? parseInt(countEl.dataset.count, 10)
+                    : 0;
                 const modelCount = AppUtils.getSelectedModelsCount();
-                document.getElementById("run-btn").disabled = testCaseCount === 0 || modelCount === 0;
+                document.getElementById("run-btn").disabled =
+                    testCaseCount === 0 || modelCount === 0;
             }
 
             function updateUI() {
@@ -691,13 +699,16 @@
 
             async function runTests() {
                 if (!selectedPromptId) return;
-                
+
                 const selectedModels = AppUtils.getSelectedModels();
                 if (selectedModels.length === 0) {
-                    AppUtils.showAppMessage("Please select at least one model to run tests", "error");
+                    AppUtils.showAppMessage(
+                        "Please select at least one model to run tests",
+                        "error"
+                    );
                     return;
                 }
-                
+
                 document.getElementById("run-btn").disabled = true;
                 document.getElementById("progress-section").classList.remove("hidden");
                 document.getElementById("results-section").classList.add("hidden");
@@ -708,10 +719,10 @@
                     const res = await fetch("/api/test/run", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ 
-                            promptId: selectedPromptId, 
+                        body: JSON.stringify({
+                            promptId: selectedPromptId,
                             runsPerTest,
-                            selectedModels 
+                            selectedModels,
                         }),
                     });
                     if (!res.ok) {
@@ -805,13 +816,13 @@
                     .map((llm) => {
                         const badgeClass =
                             llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
-                        const avgDurationText = llm.durationStats 
-                            ? `<span class="duration-badge" title="Average response time">⏱ ${formatDuration(llm.durationStats.avgMs)}</span>` 
-                            : '';
+                        const avgDurationText = llm.durationStats
+                            ? `<span class="duration-badge" title="Average response time">⏱ ${formatDuration(llm.durationStats.avgMs)}</span>`
+                            : "";
                         return `
                         <div class="llm-result-row">
                             <span class="llm-result-name">${llm.llmName}</span>
-                            <span class="score-badge ${badgeClass}">${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)</span>
+                            <span class="score-badge ${badgeClass}">${llm.score}% avg score</span>
                             ${avgDurationText}
                             <button class="btn-view-details" onclick="openTestDetailsModal('${llm.llmName}')" title="View details">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -848,7 +859,7 @@
 
             function renderTestDetailsContent(llm) {
                 // Build duration stats section if available
-                let durationStatsHtml = '';
+                let durationStatsHtml = "";
                 if (llm.durationStats) {
                     durationStatsHtml = `
                         <div class="duration-stats-section" style="background: var(--color-bg-elevated); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
@@ -865,57 +876,159 @@
                 // Toggle button
                 const toggleBtnHtml = `
                     <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
-                        <button type="button" id="toggle-runs-btn" class="btn-toggle-runs ${showAllRuns ? 'active' : ''}" onclick="toggleShowAllRuns()">
+                        <button type="button" id="toggle-runs-btn" class="btn-toggle-runs ${showAllRuns ? "active" : ""}" onclick="toggleShowAllRuns()">
                             ${showAllRuns ? "Hide Individual Runs" : "Show Individual Runs"}
                         </button>
                     </div>
                 `;
 
-                document.getElementById("test-details-content").innerHTML = durationStatsHtml + toggleBtnHtml + llm.testCaseResults
-                    .map((tc, i) => {
-                        const successRate = (tc.correctRuns / tc.runs.length) * 100;
-                        const statusClass = successRate >= 80 ? "success" : "failure";
-                        
-                        // Individual runs section
-                        let runsHtml = '';
-                        if (showAllRuns && tc.runs && tc.runs.length > 0) {
-                            runsHtml = `
+                document.getElementById("test-details-content").innerHTML =
+                    durationStatsHtml +
+                    toggleBtnHtml +
+                    llm.testCaseResults
+                        .map((tc, i) => {
+                            const avgScore = tc.averageScore || 0;
+                            const scoreClass =
+                                avgScore >= 80 ? "success" : avgScore >= 50 ? "medium" : "failure";
+
+                            // Individual runs section
+                            let runsHtml = "";
+                            if (showAllRuns && tc.runs && tc.runs.length > 0) {
+                                runsHtml = `
                                 <div class="individual-runs-section" style="margin-top: 12px; border-top: 1px solid var(--color-border); padding-top: 12px;">
                                     <div style="margin-bottom: 8px; font-weight: 600; color: var(--color-text-muted);">Individual Runs:</div>
-                                    ${tc.runs.map((run, runIdx) => {
-                                        const runStatusClass = run.isCorrect ? "success" : "failure";
-                                        const runStatusIcon = run.isCorrect ? "✓" : "✗";
-                                        return `
-                                            <div class="individual-run" style="background: var(--color-bg-elevated); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--color-${runStatusClass});">
-                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                                    <span class="run-status-icon ${runStatusClass}" style="font-weight: bold;">${runStatusIcon}</span>
+                                    ${tc.runs
+                                        .map((run, runIdx) => {
+                                            const runScore = run.score || 0;
+                                            const runScoreClass =
+                                                runScore >= 80
+                                                    ? "success"
+                                                    : runScore >= 50
+                                                      ? "medium"
+                                                      : "failure";
+                                            const runStatusIcon = run.isCorrect
+                                                ? "✓"
+                                                : runScore >= 50
+                                                  ? "◐"
+                                                  : "✗";
+                                            const expectedFound = run.expectedFound || 0;
+                                            const expectedTotal = run.expectedTotal || 0;
+                                            const unexpectedCount = run.unexpectedCount || 0;
+
+                                            // Build score breakdown text
+                                            let scoreBreakdown = "";
+                                            if (expectedTotal > 0 || unexpectedCount > 0) {
+                                                scoreBreakdown = `<div style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+                                                <span style="color: var(--color-success);">${expectedFound}/${expectedTotal} expected found</span>
+                                                ${unexpectedCount > 0 ? `<span style="color: var(--color-failure); margin-left: 8px;">+${unexpectedCount} unexpected</span>` : ""}
+                                            </div>`;
+                                            }
+
+                                            return `
+                                            <div class="individual-run" style="background: var(--color-bg-elevated); padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid var(--color-${runScoreClass});">
+                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+                                                    <span class="run-status-icon ${runScoreClass}" style="font-weight: bold;">${runStatusIcon}</span>
                                                     <span style="font-weight: 500;">Run #${runIdx + 1}</span>
-                                                    <span class="run-status-badge ${runStatusClass}" style="font-size: 12px; padding: 2px 8px; border-radius: 4px; background: var(--color-${runStatusClass}-bg, ${run.isCorrect ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}); color: var(--color-${runStatusClass});">${run.isCorrect ? 'Correct' : 'Incorrect'}</span>
+                                                    <span class="score-badge ${runScoreClass}" style="font-size: 12px;">${runScore}%</span>
                                                 </div>
+                                                ${scoreBreakdown}
                                                 <div style="margin-top: 6px;">
                                                     <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Actual Output:</div>
                                                     <div class="json-preview" style="font-size: 13px; max-height: 150px; overflow-y: auto;">${escapeHtml(run.actualOutput || "N/A")}</div>
                                                 </div>
                                             </div>
                                         `;
-                                    }).join('')}
+                                        })
+                                        .join("")}
                                 </div>
                             `;
-                        }
-                        
-                        return `
+                            }
+
+                            // Calculate aggregated metrics for test case
+                            let tcMetricsSummary = "";
+                            if (tc.runs && tc.runs.length > 0) {
+                                const totalExpectedFound = tc.runs.reduce(
+                                    (sum, r) => sum + (r.expectedFound || 0),
+                                    0
+                                );
+                                const totalExpectedTotal = tc.runs.reduce(
+                                    (sum, r) => sum + (r.expectedTotal || 0),
+                                    0
+                                );
+                                const totalUnexpected = tc.runs.reduce(
+                                    (sum, r) => sum + (r.unexpectedCount || 0),
+                                    0
+                                );
+                                if (totalExpectedTotal > 0) {
+                                    tcMetricsSummary = `<div style="margin-top: 8px; font-size: 13px; color: var(--color-text-muted);">
+                                    Across ${tc.runs.length} run(s): 
+                                    <span style="color: var(--color-success);">${totalExpectedFound}/${totalExpectedTotal} expected found</span>
+                                    ${totalUnexpected > 0 ? `<span style="color: var(--color-failure); margin-left: 8px;">+${totalUnexpected} unexpected</span>` : ""}
+                                </div>`;
+                                }
+                            }
+
+                            // Horizontal run results summary when not showing individual runs
+                            let runsSummaryHtml = "";
+                            if (!showAllRuns && tc.runs && tc.runs.length > 0) {
+                                runsSummaryHtml = `
+                                <div style="margin-top: 12px;">
+                                    <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px;"><strong>Run Results:</strong></div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                        ${tc.runs
+                                            .map((run, runIdx) => {
+                                                const runScore = run.score || 0;
+                                                const runScoreClass =
+                                                    runScore >= 80
+                                                        ? "success"
+                                                        : runScore >= 50
+                                                          ? "medium"
+                                                          : "failure";
+                                                const bgColor =
+                                                    runScore >= 80
+                                                        ? "rgba(34, 197, 94, 0.15)"
+                                                        : runScore >= 50
+                                                          ? "rgba(234, 179, 8, 0.15)"
+                                                          : "rgba(239, 68, 68, 0.15)";
+                                                const textColor =
+                                                    runScore >= 80
+                                                        ? "var(--color-success)"
+                                                        : runScore >= 50
+                                                          ? "var(--color-warning)"
+                                                          : "var(--color-failure)";
+                                                const icon = run.isCorrect
+                                                    ? "✓"
+                                                    : runScore >= 50
+                                                      ? "◐"
+                                                      : "✗";
+                                                return `<div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: ${bgColor}; font-size: 12px;" title="Run #${runIdx + 1}: ${runScore}%">
+                                                <span style="color: ${textColor}; font-weight: bold;">${icon}</span>
+                                                <span style="color: ${textColor};">${runScore}%</span>
+                                            </div>`;
+                                            })
+                                            .join("")}
+                                    </div>
+                                </div>
+                            `;
+                            }
+
+                            return `
                             <div class="test-case-detail">
-                                <div class="header"><strong>Test Case #${i + 1}</strong><span class="correct-count ${statusClass}">${tc.correctRuns}/${tc.runs.length} correct</span></div>
-                                <div style="margin-bottom: 5px;"><strong>Input:</strong></div>
+                                <div class="header">
+                                    <strong>Test Case #${i + 1}</strong>
+                                    <span class="score-badge ${scoreClass}">${avgScore}%</span>
+                                </div>
+                                ${tcMetricsSummary}
+                                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Input:</strong></div>
                                 <div class="json-preview">${escapeHtml(tc.input.substring(0, 200))}${tc.input.length > 200 ? "..." : ""}</div>
                                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
                                 <div class="json-preview">${formatJSON(tc.expectedOutput)}</div>
-                                ${!showAllRuns && tc.runs.some((r) => !r.isCorrect) ? `<div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Wrong Output:</strong></div><div class="json-preview">${escapeHtml((tc.runs.find((r) => !r.isCorrect)?.actualOutput || "N/A").substring(0, 500))}</div>` : ""}
+                                ${runsSummaryHtml}
                                 ${runsHtml}
                             </div>
                         `;
-                    })
-                    .join("");
+                        })
+                        .join("");
             }
 
             function openTestDetailsModal(llmName) {
@@ -928,7 +1041,7 @@
                 document.getElementById("test-details-score-badge").className =
                     `score-badge ${badgeClass}`;
                 document.getElementById("test-details-score-badge").textContent =
-                    `${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)`;
+                    `${llm.score}% avg score`;
 
                 renderTestDetailsContent(llm);
 

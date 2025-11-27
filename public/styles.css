@@ -1201,6 +1201,16 @@ button.small,
     color: #92400e;
 }
 
+.score-badge-secondary {
+    padding: 4px 12px;
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--color-border);
+}
+
 .duration-badge {
     padding: 4px 12px;
     background: #e0e7ff;
@@ -1249,8 +1259,10 @@ button.small,
 
 .test-case-detail .header {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 8px;
+    flex-wrap: wrap;
 }
 
 .correct-count {
@@ -1738,8 +1750,18 @@ button.small,
     color: #10b981;
 }
 
+.run-status-icon.medium {
+    color: #f59e0b;
+}
+
 .run-status-icon.failure {
     color: #ef4444;
+}
+
+/* Color variables for dynamic use */
+:root {
+    --color-medium: #f59e0b;
+    --color-failure: #ef4444;
 }
 
 .individual-run .json-preview {
