@@ -2,8 +2,7 @@ import {
     createImprovementJob,
     updateImprovementJob,
     appendImprovementLog,
-    getImprovementJobById,
-    getPromptById,
+    getPromptByIdOrFail,
     getTestCasesForPrompt,
     createPrompt,
     Prompt,
@@ -11,7 +10,7 @@ import {
 } from "../database";
 import { getConfiguredClients, LLMClient, TestResultSummary } from "../llm-clients";
 import { runTestsForPromptContent, getTestResultSummary } from "./test-runner";
-import { NotFoundError, ConfigurationError, getErrorMessage } from "../errors";
+import { NotFoundError, ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 export interface ImprovementProgress {
     jobId: string;
@@ -32,15 +31,15 @@ export function getImprovementProgress(jobId: string): ImprovementProgress | nul
 }
 
 export async function startImprovement(promptId: number, maxIterations: number): Promise<string> {
-    const prompt = getPromptById(promptId);
-    if (!prompt) {
-        throw new NotFoundError("Prompt", promptId);
-    }
+    // Use OrFail variant for cleaner code - throws NotFoundError if prompt doesn't exist
+    const prompt = getPromptByIdOrFail(promptId);
 
     const testCases = getTestCasesForPrompt(promptId);
-    if (testCases.length === 0) {
-        throw new NotFoundError(`Test cases for prompt ${promptId}`);
-    }
+    // Use requireEntity for explicit assertion with clear error message
+    requireEntity(
+        testCases.length > 0 ? testCases : null,
+        `Test cases for prompt ${promptId}`
+    );
 
     const clients = getConfiguredClients();
     if (clients.length === 0) {

@@ -3,15 +3,13 @@ import {
     updateTestJob,
     createTestResult,
     getTestCasesForPrompt,
-    getPromptById,
+    getPromptByIdOrFail,
     TestCase,
     Prompt,
-    getTestJobById,
-    getTestResultsForJob,
 } from "../database";
 import { getConfiguredClients, LLMClient } from "../llm-clients";
 import { compareJSON } from "../utils/json-comparison";
-import { NotFoundError, ConfigurationError, getErrorMessage } from "../errors";
+import { NotFoundError, ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 const DEFAULT_RUNS_PER_TEST = 10;
 
@@ -63,15 +61,15 @@ export function getTestProgress(jobId: string): TestProgress | null {
 }
 
 export async function startTestRun(promptId: number, runsPerTest: number = DEFAULT_RUNS_PER_TEST): Promise<string> {
-    const prompt = getPromptById(promptId);
-    if (!prompt) {
-        throw new NotFoundError("Prompt", promptId);
-    }
+    // Use OrFail variant - throws NotFoundError if prompt doesn't exist
+    const prompt = getPromptByIdOrFail(promptId);
 
     const testCases = getTestCasesForPrompt(promptId);
-    if (testCases.length === 0) {
-        throw new NotFoundError(`Test cases for prompt ${promptId}`);
-    }
+    // Use requireEntity for explicit assertion with clear error message
+    requireEntity(
+        testCases.length > 0 ? testCases : null,
+        `Test cases for prompt ${promptId}`
+    );
 
     const clients = getConfiguredClients();
     if (clients.length === 0) {

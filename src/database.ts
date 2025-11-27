@@ -13,7 +13,7 @@ import {
     type TestResult,
     type ImprovementJob,
 } from "./db/schema";
-import { NotFoundError } from "./errors";
+import { NotFoundError, ensureExists } from "./errors";
 
 export { initializeDatabase } from "./db";
 export type { Prompt, TestCase, TestJob, TestResult, ImprovementJob };
@@ -92,6 +92,14 @@ export function createPrompt(name: string, content: string, parentVersionId?: nu
 
 export function getPromptById(id: number): Prompt | null {
     return getDb().select().from(prompts).where(eq(prompts.id, id)).get() ?? null;
+}
+
+/**
+ * Gets a prompt by ID or throws NotFoundError if not found.
+ * Use this when you expect the prompt to exist.
+ */
+export function getPromptByIdOrFail(id: number): Prompt {
+    return ensureExists(getPromptById(id), "Prompt", id);
 }
 
 export function deletePrompt(id: number): void {
@@ -194,6 +202,14 @@ export function getTestCaseById(id: number): TestCase | null {
     return getDb().select().from(testCases).where(eq(testCases.id, id)).get() ?? null;
 }
 
+/**
+ * Gets a test case by ID or throws NotFoundError if not found.
+ * Use this when you expect the test case to exist.
+ */
+export function getTestCaseByIdOrFail(id: number): TestCase {
+    return ensureExists(getTestCaseById(id), "Test case", id);
+}
+
 export function getTestCasesForPrompt(promptId: number): TestCase[] {
     return getDb()
         .select()
@@ -268,6 +284,14 @@ export function getTestJobById(id: string): TestJob | null {
     return getDb().select().from(testJobs).where(eq(testJobs.id, id)).get() ?? null;
 }
 
+/**
+ * Gets a test job by ID or throws NotFoundError if not found.
+ * Use this when you expect the test job to exist.
+ */
+export function getTestJobByIdOrFail(id: string): TestJob {
+    return ensureExists(getTestJobById(id), "Test job", id);
+}
+
 export function updateTestJob(id: string, updates: Partial<typeof testJobs.$inferSelect>): void {
     withSave(() => {
         getDb()
@@ -336,6 +360,14 @@ export function createImprovementJob(id: string, promptId: number, maxIterations
 
 export function getImprovementJobById(id: string): ImprovementJob | null {
     return getDb().select().from(improvementJobs).where(eq(improvementJobs.id, id)).get() ?? null;
+}
+
+/**
+ * Gets an improvement job by ID or throws NotFoundError if not found.
+ * Use this when you expect the improvement job to exist.
+ */
+export function getImprovementJobByIdOrFail(id: string): ImprovementJob {
+    return ensureExists(getImprovementJobById(id), "Improvement job", id);
 }
 
 export function updateImprovementJob(

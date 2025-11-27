@@ -11,6 +11,7 @@ import {
     getPromptVersions,
     getPromptVersionsByGroupId,
     getPromptById,
+    getPromptByIdOrFail,
     getAllPrompts,
     deletePrompt,
     deleteAllVersionsOfPrompt,
@@ -19,6 +20,8 @@ import {
     deleteTestCase,
     updateTestCase,
     getTestJobById,
+    getTestJobByIdOrFail,
+    getImprovementJobByIdOrFail,
 } from "./database";
 import { refreshClients, getConfiguredClients } from "./llm-clients";
 import { startTestRun, getTestProgress } from "./services/test-runner";
@@ -136,12 +139,7 @@ app.post("/api/prompts", (req, res) => {
 app.get("/api/prompts/:id", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const prompt = getPromptById(id);
-
-        if (!prompt) {
-            throw new NotFoundError("Prompt", id);
-        }
-
+        const prompt = getPromptByIdOrFail(id);
         res.json(prompt);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -152,11 +150,7 @@ app.get("/api/prompts/:id", (req, res) => {
 app.get("/api/prompts/:id/versions", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const prompt = getPromptById(id);
-        
-        if (!prompt) {
-            throw new NotFoundError("Prompt", id);
-        }
+        const prompt = getPromptByIdOrFail(id);
 
         // Use promptGroupId if available, otherwise fall back to the prompt's own ID
         const groupId = prompt.promptGroupId ?? id;
@@ -180,10 +174,8 @@ app.get("/api/prompts/by-name/:name/versions", (req, res) => {
 app.delete("/api/prompts/:id", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const prompt = getPromptById(id);
-        if (!prompt) {
-            throw new NotFoundError("Prompt", id);
-        }
+        // Verify prompt exists before deleting
+        getPromptByIdOrFail(id);
         deletePrompt(id);
         res.json({ success: true });
     } catch (error) {
@@ -297,11 +289,7 @@ app.get("/api/test/status/:jobId", (req, res) => {
             return res.json(progress);
         }
 
-        const job = getTestJobById(jobId);
-        if (!job) {
-            throw new NotFoundError("Job", jobId);
-        }
-
+        const job = getTestJobByIdOrFail(jobId);
         res.json({
             jobId: job.id,
             status: job.status,
@@ -341,18 +329,14 @@ app.get("/api/improve/status/:jobId", (req, res) => {
             return res.json(progress);
         }
 
-        const job = require("./database").getImprovementJobById(jobId);
-        if (!job) {
-            throw new NotFoundError("Job", jobId);
-        }
-
+        const job = getImprovementJobByIdOrFail(jobId);
         res.json({
             jobId: job.id,
             status: job.status,
-            currentIteration: job.current_iteration,
-            maxIterations: job.max_iterations,
-            bestScore: job.best_score,
-            bestPromptContent: job.best_prompt_content,
+            currentIteration: job.currentIteration,
+            maxIterations: job.maxIterations,
+            bestScore: job.bestScore,
+            bestPromptContent: job.bestPromptContent,
             originalScore: null,
             log: job.log ? job.log.split("\n").filter((l: string) => l) : [],
         });

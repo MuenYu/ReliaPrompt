@@ -106,3 +106,101 @@ export function isAppError(error: unknown): error is AppError {
     return error instanceof AppError;
 }
 
+/**
+ * Asserts that a value is not null or undefined.
+ * Throws NotFoundError if the value is nullish.
+ * This is a type-narrowing assertion function.
+ * 
+ * @example
+ * const prompt = getPromptById(id);
+ * requireEntity(prompt, "Prompt", id);
+ * // prompt is now typed as Prompt (not Prompt | null)
+ */
+export function requireEntity<T>(
+    value: T | null | undefined,
+    resourceName: string,
+    identifier?: string | number
+): asserts value is T {
+    if (value === null || value === undefined) {
+        throw new NotFoundError(resourceName, identifier);
+    }
+}
+
+/**
+ * Returns the value if not null/undefined, or throws NotFoundError.
+ * Use when you need the value inline rather than as an assertion.
+ * 
+ * @example
+ * const prompt = ensureExists(getPromptById(id), "Prompt", id);
+ * // prompt is typed as Prompt
+ */
+export function ensureExists<T>(
+    value: T | null | undefined,
+    resourceName: string,
+    identifier?: string | number
+): T {
+    if (value === null || value === undefined) {
+        throw new NotFoundError(resourceName, identifier);
+    }
+    return value;
+}
+
+/**
+ * Option type utilities for explicit nullable handling.
+ * Provides a more functional approach to handling nullable values.
+ */
+export type Option<T> = T | null;
+
+export const Option = {
+    /**
+     * Returns true if the option contains a value.
+     */
+    isSome<T>(opt: Option<T>): opt is T {
+        return opt !== null;
+    },
+
+    /**
+     * Returns true if the option is empty.
+     */
+    isNone<T>(opt: Option<T>): opt is null {
+        return opt === null;
+    },
+
+    /**
+     * Maps an option using a transform function. Returns null if option is null.
+     */
+    map<T, U>(opt: Option<T>, fn: (value: T) => U): Option<U> {
+        return opt === null ? null : fn(opt);
+    },
+
+    /**
+     * Returns the value or a default if the option is null.
+     */
+    getOrElse<T>(opt: Option<T>, defaultValue: T): T {
+        return opt === null ? defaultValue : opt;
+    },
+
+    /**
+     * Returns the value or throws an error if the option is null.
+     */
+    getOrThrow<T>(opt: Option<T>, resourceName: string, identifier?: string | number): T {
+        return ensureExists(opt, resourceName, identifier);
+    },
+
+    /**
+     * Executes a function if the option has a value.
+     */
+    ifSome<T>(opt: Option<T>, fn: (value: T) => void): void {
+        if (opt !== null) {
+            fn(opt);
+        }
+    },
+
+    /**
+     * Chains optional operations. Returns null if any step returns null.
+     */
+    flatMap<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U> {
+        return opt === null ? null : fn(opt);
+    },
+};
+
