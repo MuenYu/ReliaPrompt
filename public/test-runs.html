@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Run Tests - Relia Prompt</title>
+        <title>Test Runs - Relia Prompt</title>
         <link rel="stylesheet" href="/styles.css" />
     </head>
     <body>
@@ -27,7 +27,7 @@
                 </a>
                 <div class="navbar-nav hidden">
                     <a href="/test-cases.html">Test Cases</a>
-                    <a href="/run-tests.html" class="active">Run Tests</a>
+                    <a href="/test-runs.html" class="active">Test Runs</a>
                     <a href="/improve.html">Auto-Improve</a>
                 </div>
                 <div class="navbar-actions">
@@ -65,7 +65,7 @@
                     <div id="app-message"></div>
 
                     <div class="page-header">
-                        <h1>Run Tests</h1>
+                        <h1>Test Runs</h1>
                         <p>Test your prompts against all configured LLMs</p>
                     </div>
 
@@ -116,7 +116,7 @@
                                     <span
                                         id="runs-per-test-value"
                                         style="min-width: 24px; font-weight: 600"
-                                        >10</span
+                                        >1</span
                                     >
                                 </div>
                                 <small
@@ -147,8 +147,10 @@
 
                         <div id="results-section" class="hidden">
                             <div class="card">
-                                <h2>Results</h2>
-                                <div id="score-cards" class="score-cards"></div>
+                                <h2>
+                                    Results
+                                    <span id="overall-score-badge" class="score-badge"></span>
+                                </h2>
                                 <div id="llm-results" class="llm-results"></div>
                             </div>
                         </div>
@@ -392,11 +394,47 @@
             </div>
         </div>
 
+        <!-- Test Details Modal -->
+        <div class="modal-overlay" id="test-details-modal">
+            <div class="modal modal-wide">
+                <div class="modal-header">
+                    <div class="modal-title-group">
+                        <h2 id="test-details-llm-name">Test Details</h2>
+                        <span class="score-badge" id="test-details-score-badge"></span>
+                    </div>
+                    <button class="modal-close" id="test-details-close-btn">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div
+                    class="modal-body"
+                    id="test-details-content"
+                    style="max-height: 60vh; overflow-y: auto"
+                ></div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary" onclick="closeTestDetailsModal()">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <script src="/app.js"></script>
         <script>
             let selectedPromptId = null;
             let selectedPromptName = null;
             let pollInterval = null;
+            let storedLlmResults = {};
 
             // Listen for prompt selection from sidebar
             window.addEventListener("promptSelected", (e) => {
@@ -545,49 +583,74 @@
                 if (!results) return;
                 document.getElementById("results-section").classList.remove("hidden");
 
-                document.getElementById("score-cards").innerHTML = `
-                    <div class="score-card overall"><h3>Overall Score</h3><div class="score">${results.overallScore}%</div></div>
-                    ${results.llmResults.map((llm) => `<div class="score-card"><h3>${llm.llmName}</h3><div class="score">${llm.score}%</div></div>`).join("")}
-                `;
+                // Store results for modal access
+                storedLlmResults = {};
+                results.llmResults.forEach((llm) => {
+                    storedLlmResults[llm.llmName] = llm;
+                });
+
+                // Set overall score badge next to Results heading
+                const overallBadgeClass =
+                    results.overallScore >= 80 ? "" : results.overallScore >= 50 ? "medium" : "low";
+                document.getElementById("overall-score-badge").className =
+                    `score-badge ${overallBadgeClass}`;
+                document.getElementById("overall-score-badge").textContent =
+                    `${results.overallScore}%`;
 
                 document.getElementById("llm-results").innerHTML = results.llmResults
                     .map((llm) => {
                         const badgeClass =
                             llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
                         return `
-                        <div class="llm-result-card">
-                            <h4>${llm.llmName} <span class="score-badge ${badgeClass}">${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)</span></h4>
-                            <div id="details-${llm.llmName}" class="hidden">
-                                ${llm.testCaseResults
-                                    .map((tc, i) => {
-                                        const successRate = (tc.correctRuns / tc.runs.length) * 100;
-                                        const statusClass =
-                                            successRate >= 80 ? "success" : "failure";
-                                        return `
-                                        <div class="test-case-detail">
-                                            <div class="header"><strong>Test Case #${i + 1}</strong><span class="correct-count ${statusClass}">${tc.correctRuns}/${tc.runs.length} correct</span></div>
-                                            <div style="margin-bottom: 5px;"><strong>Input:</strong></div>
-                                            <div class="json-preview">${escapeHtml(tc.input.substring(0, 200))}${tc.input.length > 200 ? "..." : ""}</div>
-                                            <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
-                                            <div class="json-preview">${formatJSON(tc.expectedOutput)}</div>
-                                            ${tc.runs.some((r) => !r.isCorrect) ? `<div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Wrong Output:</strong></div><div class="json-preview">${escapeHtml((tc.runs.find((r) => !r.isCorrect)?.actualOutput || "N/A").substring(0, 500))}</div>` : ""}
-                                        </div>
-                                    `;
-                                    })
-                                    .join("")}
-                            </div>
-                            <button class="details-toggle" onclick="toggleDetails('${llm.llmName}')">Show Details</button>
+                        <div class="llm-result-row">
+                            <span class="llm-result-name">${llm.llmName}</span>
+                            <span class="score-badge ${badgeClass}">${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)</span>
+                            <button class="btn-view-details" onclick="openTestDetailsModal('${llm.llmName}')" title="View details">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
                         </div>
                     `;
                     })
                     .join("");
             }
 
-            function toggleDetails(llmName) {
-                const el = document.getElementById("details-" + llmName);
-                const btn = el.parentElement.querySelector(".details-toggle");
-                el.classList.toggle("hidden");
-                btn.textContent = el.classList.contains("hidden") ? "Show Details" : "Hide Details";
+            function openTestDetailsModal(llmName) {
+                const llm = storedLlmResults[llmName];
+                if (!llm) return;
+
+                const badgeClass = llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
+
+                document.getElementById("test-details-llm-name").textContent = llm.llmName;
+                document.getElementById("test-details-score-badge").className =
+                    `score-badge ${badgeClass}`;
+                document.getElementById("test-details-score-badge").textContent =
+                    `${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)`;
+
+                document.getElementById("test-details-content").innerHTML = llm.testCaseResults
+                    .map((tc, i) => {
+                        const successRate = (tc.correctRuns / tc.runs.length) * 100;
+                        const statusClass = successRate >= 80 ? "success" : "failure";
+                        return `
+                            <div class="test-case-detail">
+                                <div class="header"><strong>Test Case #${i + 1}</strong><span class="correct-count ${statusClass}">${tc.correctRuns}/${tc.runs.length} correct</span></div>
+                                <div style="margin-bottom: 5px;"><strong>Input:</strong></div>
+                                <div class="json-preview">${escapeHtml(tc.input.substring(0, 200))}${tc.input.length > 200 ? "..." : ""}</div>
+                                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
+                                <div class="json-preview">${formatJSON(tc.expectedOutput)}</div>
+                                ${tc.runs.some((r) => !r.isCorrect) ? `<div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Wrong Output:</strong></div><div class="json-preview">${escapeHtml((tc.runs.find((r) => !r.isCorrect)?.actualOutput || "N/A").substring(0, 500))}</div>` : ""}
+                            </div>
+                        `;
+                    })
+                    .join("");
+
+                document.getElementById("test-details-modal").classList.add("active");
+            }
+
+            function closeTestDetailsModal() {
+                document.getElementById("test-details-modal").classList.remove("active");
             }
 
             function escapeHtml(text) {
@@ -606,6 +669,21 @@
 
             document.getElementById("run-btn").addEventListener("click", runTests);
             document.getElementById("runs-per-test").addEventListener("input", updateRunsDisplay);
+            document
+                .getElementById("test-details-close-btn")
+                .addEventListener("click", closeTestDetailsModal);
+
+            // Close modal on overlay click
+            document.getElementById("test-details-modal").addEventListener("click", (e) => {
+                if (e.target === e.currentTarget) closeTestDetailsModal();
+            });
+
+            // Close modal on Escape key
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    closeTestDetailsModal();
+                }
+            });
 
             // Initialize
             updateUI();

@@ -155,7 +155,7 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 │   ├── index.html
 │   ├── prompts.html
 │   ├── test-cases.html
-│   ├── run-tests.html
+│   ├── test-runs.html
 │   ├── improve.html
 │   └── styles.css
 ├── drizzle/                # Database migrations

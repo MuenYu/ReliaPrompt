@@ -11,7 +11,7 @@ import { getConfiguredClients, LLMClient } from "../llm-clients";
 import { compareJSON } from "../utils/json-comparison";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
-const DEFAULT_RUNS_PER_TEST = 10;
+const DEFAULT_RUNS_PER_TEST = 1;
 
 export interface TestProgress {
     jobId: string;

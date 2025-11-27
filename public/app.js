@@ -39,7 +39,7 @@ const CURRENT_PAGE = window.location.pathname.split("/").pop() || "index.html";
 
 const NAV_ITEMS = [
     { href: "/test-cases.html", label: "Test Cases", page: "test-cases.html" },
-    { href: "/run-tests.html", label: "Run Tests", page: "run-tests.html" },
+    { href: "/test-runs.html", label: "Test Runs", page: "test-runs.html" },
     { href: "/improve.html", label: "Auto-Improve", page: "improve.html" },
 ];
 
