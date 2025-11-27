@@ -161,17 +161,11 @@
                             <div class="form-group">
                                 <label for="openai_api_key">API Key</label>
                                 <input
-                                    type="password"
+                                    type="text"
                                     id="openai_api_key"
                                     name="openai_api_key"
                                     placeholder="sk-..."
                                 />
-                                <small
-                                    >Get your API key from
-                                    <a href="https://platform.openai.com/api-keys" target="_blank"
-                                        >OpenAI Dashboard</a
-                                    ></small
-                                >
                             </div>
                         </div>
 
@@ -185,7 +179,7 @@
                             <div class="form-group">
                                 <label for="bedrock_access_key_id">Access Key ID</label>
                                 <input
-                                    type="password"
+                                    type="text"
                                     id="bedrock_access_key_id"
                                     name="bedrock_access_key_id"
                                     placeholder="AKIA..."
@@ -194,7 +188,7 @@
                             <div class="form-group">
                                 <label for="bedrock_secret_access_key">Secret Access Key</label>
                                 <input
-                                    type="password"
+                                    type="text"
                                     id="bedrock_secret_access_key"
                                     name="bedrock_secret_access_key"
                                     placeholder="..."
@@ -209,7 +203,6 @@
                                     placeholder="us-east-1"
                                     value="us-east-1"
                                 />
-                                <small>AWS region where Bedrock is enabled</small>
                             </div>
                         </div>
 
@@ -223,17 +216,11 @@
                             <div class="form-group">
                                 <label for="deepseek_api_key">API Key</label>
                                 <input
-                                    type="password"
+                                    type="text"
                                     id="deepseek_api_key"
                                     name="deepseek_api_key"
                                     placeholder="sk-..."
                                 />
-                                <small
-                                    >Get your API key from
-                                    <a href="https://platform.deepseek.com/api_keys" target="_blank"
-                                        >Deepseek Platform</a
-                                    ></small
-                                >
                             </div>
                         </div>
                     </div>
@@ -342,6 +329,39 @@
                         <button type="submit">Save as New Version</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- View Prompt Modal -->
+        <div class="modal-overlay" id="view-prompt-modal">
+            <div class="modal modal-wide">
+                <div class="modal-header">
+                    <div class="modal-title-group">
+                        <h2 id="view-prompt-name-display">Prompt</h2>
+                        <span class="badge badge-version" id="view-prompt-version">v1</span>
+                    </div>
+                    <button class="modal-close" id="view-prompt-close-btn">
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre class="view-prompt-content" id="view-prompt-content"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary" onclick="closeViewPromptModal()">
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
 

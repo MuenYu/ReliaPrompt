@@ -50,15 +50,7 @@ app.use((req, res, next) => {
 app.get("/api/config", (req, res) => {
     try {
         const config = getAllConfig();
-        const masked: Record<string, string> = {};
-        for (const [key, value] of Object.entries(config)) {
-            if (key.includes("key") || key.includes("secret")) {
-                masked[key] = value ? "***configured***" : "";
-            } else {
-                masked[key] = value;
-            }
-        }
-        res.json(masked);
+        res.json(config);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }

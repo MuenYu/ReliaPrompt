@@ -4,6 +4,10 @@ const ICONS = {
         <path d="M2 17l10 5 10-5"/>
         <path d="M2 12l10 5 10-5"/>
     </svg>`,
+    eye: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+    </svg>`,
     setup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -114,6 +118,9 @@ async function loadPromptSidebar() {
                                 <div class="sidebar-group-meta">${p.version} version${p.version > 1 ? "s" : ""}</div>
                             </div>
                             <div class="sidebar-group-actions">
+                                <button class="sidebar-action-btn view" data-id="${p.id}" data-name="${escapeHtml(p.name)}" title="View prompt">
+                                    ${ICONS.eye}
+                                </button>
                                 <button class="sidebar-action-btn delete" data-id="${p.id}" data-name="${escapeHtml(p.name)}" data-group-id="${groupId}" title="Delete all versions">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <polyline points="3 6 5 6 21 6"/>
@@ -139,6 +146,15 @@ async function loadPromptSidebar() {
                 const groupId = parseInt(header.dataset.groupId, 10);
                 const promptId = parseInt(header.dataset.id, 10);
                 await toggleVersionsExpand(groupId, promptId);
+            });
+        });
+
+        sidebarList.querySelectorAll(".sidebar-group-actions .sidebar-action-btn.view").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id, 10);
+                const name = btn.dataset.name;
+                openViewPromptModal(id, name);
             });
         });
 
@@ -190,12 +206,17 @@ function renderVersionsList(versions, selectedId) {
                     <span class="badge badge-version">v${v.version}</span>
                     <span class="sidebar-version-date">${formatVersionDate(v.createdAt || v.created_at)}</span>
                 </div>
-                <button class="sidebar-action-btn delete version-delete" data-id="${v.id}" data-name="${escapeHtml(v.name)}" data-version="${v.version}" data-group-id="${getPromptGroupId(v)}" title="Delete this version">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    </svg>
-                </button>
+                <div class="sidebar-version-actions">
+                    <button class="sidebar-action-btn view version-view" data-id="${v.id}" data-name="${escapeHtml(v.name)}" data-version="${v.version}" title="View prompt">
+                        ${ICONS.eye}
+                    </button>
+                    <button class="sidebar-action-btn delete version-delete" data-id="${v.id}" data-name="${escapeHtml(v.name)}" data-version="${v.version}" data-group-id="${getPromptGroupId(v)}" title="Delete this version">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         `
         )
@@ -286,6 +307,17 @@ async function toggleVersionsExpand(groupId, promptId) {
                 const itemName = item.dataset.name;
                 const itemGroupId = parseInt(item.dataset.groupId, 10);
                 selectPrompt(id, itemName, itemGroupId);
+            });
+        });
+
+        // Add click handlers for version view buttons
+        versionsContainer.querySelectorAll(".version-view").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id, 10);
+                const name = btn.dataset.name;
+                const version = parseInt(btn.dataset.version, 10);
+                openViewPromptModal(id, name, version);
             });
         });
 
@@ -426,6 +458,32 @@ function closeEditPromptModal() {
         editingPromptId = null;
         editingPromptName = null;
         editingPromptGroupId = null;
+    }
+}
+
+async function openViewPromptModal(id, name, version) {
+    const overlay = document.getElementById("view-prompt-modal");
+    if (!overlay) return;
+
+    try {
+        const res = await fetch(`/api/prompts/${id}`);
+        const prompt = await res.json();
+
+        const versionLabel = version ? `v${version}` : `v${prompt.version}`;
+        document.getElementById("view-prompt-name-display").textContent = name;
+        document.getElementById("view-prompt-version").textContent = versionLabel;
+        document.getElementById("view-prompt-content").textContent = prompt.content;
+
+        overlay.classList.add("active");
+    } catch (error) {
+        showAppMessage("Error loading prompt", "error");
+    }
+}
+
+function closeViewPromptModal() {
+    const overlay = document.getElementById("view-prompt-modal");
+    if (overlay) {
+        overlay.classList.remove("active");
     }
 }
 
@@ -576,9 +634,20 @@ async function loadConfigStatus() {
         );
         updateConfigBadge("deepseek-status", !!config.deepseek_api_key);
 
-        if (config.bedrock_region) {
-            const regionInput = document.getElementById("bedrock_region");
-            if (regionInput) regionInput.value = config.bedrock_region;
+        // Populate input fields with values from the database
+        const fields = [
+            "openai_api_key",
+            "bedrock_access_key_id",
+            "bedrock_secret_access_key",
+            "deepseek_api_key",
+            "bedrock_region"
+        ];
+        
+        for (const field of fields) {
+            const input = document.getElementById(field);
+            if (input) {
+                input.value = config[field] || "";
+            }
         }
     } catch (error) {
         showAppMessage("Error loading configuration", "error");
@@ -600,9 +669,7 @@ async function saveConfig(e) {
     const data = {};
 
     for (const [key, value] of formData.entries()) {
-        if (value.trim()) {
-            data[key] = value.trim();
-        }
+        data[key] = value.trim();
     }
 
     try {
@@ -615,7 +682,6 @@ async function saveConfig(e) {
         if (res.ok) {
             showAppMessage("Configuration saved successfully!", "success");
             loadConfigStatus();
-            form.querySelectorAll('input[type="password"]').forEach((el) => (el.value = ""));
         } else {
             const error = await res.json();
             showAppMessage(error.error || "Failed to save configuration", "error");
@@ -707,6 +773,18 @@ function initAppLayout() {
         editPromptForm.addEventListener("submit", saveEditedPrompt);
     }
 
+    const viewPromptModalOverlay = document.getElementById("view-prompt-modal");
+    if (viewPromptModalOverlay) {
+        viewPromptModalOverlay.addEventListener("click", (e) => {
+            if (e.target === viewPromptModalOverlay) closeViewPromptModal();
+        });
+    }
+
+    const viewPromptCloseBtn = document.getElementById("view-prompt-close-btn");
+    if (viewPromptCloseBtn) {
+        viewPromptCloseBtn.addEventListener("click", closeViewPromptModal);
+    }
+
     // Deselect prompt when clicking on empty space in sidebar
     const sidebarList = document.getElementById("sidebar-prompts");
     if (sidebarList) {
@@ -723,6 +801,7 @@ function initAppLayout() {
             closeConfigModal();
             closeNewPromptModal();
             closeEditPromptModal();
+            closeViewPromptModal();
         }
     });
 
@@ -805,8 +884,7 @@ function getConfigModalHtml() {
                             </h3>
                             <div class="form-group">
                                 <label for="openai_api_key">API Key</label>
-                                <input type="password" id="openai_api_key" name="openai_api_key" placeholder="sk-..." />
-                                <small>Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Dashboard</a></small>
+                                <input type="text" id="openai_api_key" name="openai_api_key" placeholder="sk-..." />
                             </div>
                         </div>
 
@@ -817,16 +895,15 @@ function getConfigModalHtml() {
                             </h3>
                             <div class="form-group">
                                 <label for="bedrock_access_key_id">Access Key ID</label>
-                                <input type="password" id="bedrock_access_key_id" name="bedrock_access_key_id" placeholder="AKIA..." />
+                                <input type="text" id="bedrock_access_key_id" name="bedrock_access_key_id" placeholder="AKIA..." />
                             </div>
                             <div class="form-group">
                                 <label for="bedrock_secret_access_key">Secret Access Key</label>
-                                <input type="password" id="bedrock_secret_access_key" name="bedrock_secret_access_key" placeholder="..." />
+                                <input type="text" id="bedrock_secret_access_key" name="bedrock_secret_access_key" placeholder="..." />
                             </div>
                             <div class="form-group">
                                 <label for="bedrock_region">Region</label>
                                 <input type="text" id="bedrock_region" name="bedrock_region" placeholder="us-east-1" value="us-east-1" />
-                                <small>AWS region where Bedrock is enabled</small>
                             </div>
                         </div>
 
@@ -837,8 +914,7 @@ function getConfigModalHtml() {
                             </h3>
                             <div class="form-group">
                                 <label for="deepseek_api_key">API Key</label>
-                                <input type="password" id="deepseek_api_key" name="deepseek_api_key" placeholder="sk-..." />
-                                <small>Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank">Deepseek Platform</a></small>
+                                <input type="text" id="deepseek_api_key" name="deepseek_api_key" placeholder="sk-..." />
                             </div>
                         </div>
                     </div>
@@ -883,6 +959,30 @@ function getNewPromptModalHtml() {
     `;
 }
 
+function getViewPromptModalHtml() {
+    return `
+        <div class="modal-overlay" id="view-prompt-modal">
+            <div class="modal modal-wide">
+                <div class="modal-header">
+                    <div class="modal-title-group">
+                        <h2 id="view-prompt-name-display">Prompt</h2>
+                        <span class="badge badge-version" id="view-prompt-version">v1</span>
+                    </div>
+                    <button class="modal-close" id="view-prompt-close-btn">
+                        ${ICONS.close}
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <pre class="view-prompt-content" id="view-prompt-content"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary" onclick="closeViewPromptModal()">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 window.AppUtils = {
     getSelectedPromptId,
     setSelectedPromptId,
@@ -897,6 +997,8 @@ window.AppUtils = {
     closeNewPromptModal,
     openEditPromptModal,
     closeEditPromptModal,
+    openViewPromptModal,
+    closeViewPromptModal,
     deletePromptFromSidebar,
     deleteVersionFromSidebar,
     getPromptGroupId,
@@ -905,4 +1007,5 @@ window.AppUtils = {
     getSidebarHtml,
     getConfigModalHtml,
     getNewPromptModalHtml,
+    getViewPromptModalHtml,
 };
