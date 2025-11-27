@@ -675,9 +675,9 @@
                                 try {
                                     const results = JSON.parse(job.results);
                                     const overallBadgeClass =
-                                        results.overallScore >= 80
+                                        results.overallScore >= 90
                                             ? ""
-                                            : results.overallScore >= 50
+                                            : results.overallScore >= 80
                                               ? "medium"
                                               : "low";
                                     const bestScore = getBestLLMScore(results.llmResults);
@@ -823,8 +823,8 @@
 
                 // Set overall score badge next to Results heading
                 const overallBadgeClass =
-                    results.overallScore >= 80 ? "" : results.overallScore >= 50 ? "medium" : "low";
-                const bestBadgeClass = bestScore >= 80 ? "" : bestScore >= 50 ? "medium" : "low";
+                    results.overallScore >= 90 ? "" : results.overallScore >= 80 ? "medium" : "low";
+                const bestBadgeClass = bestScore >= 90 ? "" : bestScore >= 80 ? "medium" : "low";
 
                 document.getElementById("overall-score-badge").className =
                     `score-badge ${overallBadgeClass}`;
@@ -846,7 +846,7 @@
                 document.getElementById("llm-results").innerHTML = results.llmResults
                     .map((llm) => {
                         const badgeClass =
-                            llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
+                            llm.score >= 90 ? "" : llm.score >= 80 ? "medium" : "low";
                         const avgDurationText = llm.durationStats
                             ? `<span class="duration-badge" title="Average response time">⏱ ${formatDuration(llm.durationStats.avgMs)}</span>`
                             : "";
@@ -920,7 +920,7 @@
                         .map((tc, i) => {
                             const avgScore = tc.averageScore || 0;
                             const scoreClass =
-                                avgScore >= 80 ? "" : avgScore >= 50 ? "medium" : "low";
+                                avgScore >= 90 ? "" : avgScore >= 80 ? "medium" : "low";
 
                             // Individual runs section
                             let runsHtml = "";
@@ -932,14 +932,14 @@
                                         .map((run, runIdx) => {
                                             const runScore = run.score || 0;
                                             const runScoreClass =
-                                                runScore >= 80
+                                                runScore >= 90
                                                     ? "success"
-                                                    : runScore >= 50
+                                                    : runScore >= 80
                                                       ? "medium"
                                                       : "failure";
                                             const runStatusIcon = run.isCorrect
                                                 ? "✓"
-                                                : runScore >= 50
+                                                : runScore >= 80
                                                   ? "◐"
                                                   : "✗";
                                             const expectedFound = run.expectedFound || 0;
@@ -1010,26 +1010,26 @@
                                             .map((run, runIdx) => {
                                                 const runScore = run.score || 0;
                                                 const runScoreClass =
-                                                    runScore >= 80
+                                                    runScore >= 90
                                                         ? "success"
-                                                        : runScore >= 50
+                                                        : runScore >= 80
                                                           ? "medium"
                                                           : "failure";
                                                 const bgColor =
-                                                    runScore >= 80
+                                                    runScore >= 90
                                                         ? "rgba(34, 197, 94, 0.15)"
-                                                        : runScore >= 50
+                                                        : runScore >= 80
                                                           ? "rgba(234, 179, 8, 0.15)"
                                                           : "rgba(239, 68, 68, 0.15)";
                                                 const textColor =
-                                                    runScore >= 80
+                                                    runScore >= 90
                                                         ? "var(--color-success)"
-                                                        : runScore >= 50
+                                                        : runScore >= 80
                                                           ? "var(--color-warning)"
                                                           : "var(--color-failure)";
                                                 const icon = run.isCorrect
                                                     ? "✓"
-                                                    : runScore >= 50
+                                                    : runScore >= 80
                                                       ? "◐"
                                                       : "✗";
                                                 return `<div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: ${bgColor}; font-size: 12px;" title="Run #${runIdx + 1}: ${runScore}%">
@@ -1066,7 +1066,7 @@
                 const llm = storedLlmResults[llmName];
                 if (!llm) return;
 
-                const badgeClass = llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
+                const badgeClass = llm.score >= 90 ? "" : llm.score >= 80 ? "medium" : "low";
 
                 document.getElementById("test-details-llm-name").textContent = llm.llmName;
                 document.getElementById("test-details-score-badge").className =
