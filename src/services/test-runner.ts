@@ -60,6 +60,25 @@ export function getTestProgress(jobId: string): TestProgress | null {
     return activeJobs.get(jobId) ?? null;
 }
 
+async function handleTestRun(
+    jobId: string,
+    prompt: Prompt,
+    testCases: TestCase[],
+    clients: LLMClient[],
+    runsPerTest: number
+): Promise<void> {
+    try {
+        await runTests(jobId, prompt, testCases, clients, runsPerTest);
+    } catch (error) {
+        const progress = activeJobs.get(jobId);
+        if (progress) {
+            progress.status = "failed";
+            progress.error = error instanceof Error ? error.message : String(error);
+        }
+        updateTestJob(jobId, { status: "failed" });
+    }
+}
+
 export async function startTestRun(promptId: number, runsPerTest: number = DEFAULT_RUNS_PER_TEST): Promise<string> {
     // Use OrFail variant - throws NotFoundError if prompt doesn't exist
     const prompt = getPromptByIdOrFail(promptId);
@@ -90,14 +109,7 @@ export async function startTestRun(promptId: number, runsPerTest: number = DEFAU
     };
     activeJobs.set(jobId, progress);
 
-    runTests(jobId, prompt, testCases, clients, runsPerTest).catch((error) => {
-        const progress = activeJobs.get(jobId);
-        if (progress) {
-            progress.status = "failed";
-            progress.error = error.message;
-        }
-        updateTestJob(jobId, { status: "failed" });
-    });
+    handleTestRun(jobId, prompt, testCases, clients, runsPerTest);
 
     return jobId;
 }

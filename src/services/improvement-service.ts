@@ -30,6 +30,26 @@ export function getImprovementProgress(jobId: string): ImprovementProgress | nul
     return activeImprovementJobs.get(jobId) ?? null;
 }
 
+async function handleImprovementRun(
+    jobId: string,
+    prompt: Prompt,
+    testCases: TestCase[],
+    clients: LLMClient[],
+    maxIterations: number
+): Promise<void> {
+    try {
+        await runImprovement(jobId, prompt, testCases, clients, maxIterations);
+    } catch (error) {
+        const progress = activeImprovementJobs.get(jobId);
+        if (progress) {
+            progress.status = "failed";
+            progress.error = error instanceof Error ? error.message : String(error);
+            progress.log.push(`ERROR: ${progress.error}`);
+        }
+        updateImprovementJob(jobId, { status: "failed" });
+    }
+}
+
 export async function startImprovement(promptId: number, maxIterations: number): Promise<string> {
     // Use OrFail variant for cleaner code - throws NotFoundError if prompt doesn't exist
     const prompt = getPromptByIdOrFail(promptId);
@@ -61,15 +81,7 @@ export async function startImprovement(promptId: number, maxIterations: number):
     };
     activeImprovementJobs.set(jobId, progress);
 
-    runImprovement(jobId, prompt, testCases, clients, maxIterations).catch((error) => {
-        const progress = activeImprovementJobs.get(jobId);
-        if (progress) {
-            progress.status = "failed";
-            progress.error = error.message;
-            progress.log.push(`ERROR: ${error.message}`);
-        }
-        updateImprovementJob(jobId, { status: "failed" });
-    });
+    handleImprovementRun(jobId, prompt, testCases, clients, maxIterations);
 
     return jobId;
 }
