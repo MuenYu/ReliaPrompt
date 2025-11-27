@@ -10,7 +10,12 @@ import {
     TestCase,
 } from "../database";
 import { getConfiguredClients, ModelSelection } from "../llm-clients";
-import { runTestsForPromptContent, getTestResultSummary, LLMTestResult, ModelRunner } from "./test-runner";
+import {
+    runTestsForPromptContent,
+    getTestResultSummary,
+    LLMTestResult,
+    ModelRunner,
+} from "./test-runner";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 export interface ImprovementProgress {
@@ -74,13 +79,9 @@ function getModelRunnersFromSelections(selectedModels: ModelSelection[]): ModelR
 function getSavedModelRunners(): ModelRunner[] {
     const savedModelsJson = getConfig("selected_models");
     if (savedModelsJson) {
-        try {
-            const savedModels = JSON.parse(savedModelsJson) as ModelSelection[];
-            if (Array.isArray(savedModels) && savedModels.length > 0) {
-                return getModelRunnersFromSelections(savedModels);
-            }
-        } catch {
-            // Fall through to throw error
+        const savedModels = JSON.parse(savedModelsJson) as ModelSelection[];
+        if (Array.isArray(savedModels) && savedModels.length > 0) {
+            return getModelRunnersFromSelections(savedModels);
         }
     }
 
@@ -103,11 +104,14 @@ export async function startImprovement(
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
     // Get model runners based on selection or saved settings
-    const modelRunners = selectedModels && selectedModels.length > 0
-        ? getModelRunnersFromSelections(selectedModels)
-        : getSavedModelRunners();
+    const modelRunners =
+        selectedModels && selectedModels.length > 0
+            ? getModelRunnersFromSelections(selectedModels)
+            : getSavedModelRunners();
     if (modelRunners.length === 0) {
-        throw new ConfigurationError("No LLM models selected. Please select at least one model in settings.");
+        throw new ConfigurationError(
+            "No LLM models selected. Please select at least one model in settings."
+        );
     }
 
     const jobId = crypto.randomUUID();
@@ -148,13 +152,13 @@ async function runImprovement(
     };
 
     log(`Starting improvement for prompt: "${prompt.name}" (id: ${prompt.id})`);
-    log(`Max iterations: ${maxIterations}`);
-    log(`Runs per LLM: ${runsPerLlm}`);
-    log(`Test cases: ${testCases.length}`);
-    log(`Configured models: ${modelRunners.map((r) => r.displayName).join(", ")}`);
 
-    log("Testing original prompt...");
-    const originalResult = await runTestsForPromptContent(prompt.content, testCases, modelRunners, runsPerLlm);
+    const originalResult = await runTestsForPromptContent(
+        prompt.content,
+        testCases,
+        modelRunners,
+        runsPerLlm
+    );
     const originalScore = originalResult.score;
 
     progress.originalScore = originalScore;
@@ -188,7 +192,11 @@ async function runImprovement(
         log("Requesting improvements from all models...");
         const improvementPromises = modelRunners.map(async (runner) => {
             try {
-                const improved = await runner.client.improvePrompt(currentBestPrompt, testSummary, runner.modelId);
+                const improved = await runner.client.improvePrompt(
+                    currentBestPrompt,
+                    testSummary,
+                    runner.modelId
+                );
                 return { llm: runner.displayName, prompt: improved, error: null };
             } catch (error) {
                 return { llm: runner.displayName, prompt: null, error: getErrorMessage(error) };
