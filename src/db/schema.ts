@@ -10,14 +10,16 @@ export const prompts = sqliteTable("prompts", {
     name: text("name").notNull(),
     content: text("content").notNull(),
     version: integer("version").notNull().default(1),
-    parentVersionId: integer("parent_version_id"),
+    parentVersionId: integer("parent_version_id").references((): any => prompts.id),
     promptGroupId: integer("prompt_group_id"),
     createdAt: text("created_at").notNull(),
 });
 
 export const testCases = sqliteTable("test_cases", {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    promptId: integer("prompt_id").notNull(),
+    promptId: integer("prompt_id")
+        .notNull()
+        .references(() => prompts.id),
     input: text("input").notNull(),
     expectedOutput: text("expected_output").notNull(),
     createdAt: text("created_at").notNull(),
@@ -25,7 +27,9 @@ export const testCases = sqliteTable("test_cases", {
 
 export const testJobs = sqliteTable("test_jobs", {
     id: text("id").primaryKey(),
-    promptId: integer("prompt_id").notNull(),
+    promptId: integer("prompt_id")
+        .notNull()
+        .references(() => prompts.id),
     status: text("status").notNull().default("pending"),
     totalTests: integer("total_tests").notNull().default(0),
     completedTests: integer("completed_tests").notNull().default(0),
@@ -36,8 +40,12 @@ export const testJobs = sqliteTable("test_jobs", {
 
 export const testResults = sqliteTable("test_results", {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    jobId: text("job_id").notNull(),
-    testCaseId: integer("test_case_id").notNull(),
+    jobId: text("job_id")
+        .notNull()
+        .references(() => testJobs.id),
+    testCaseId: integer("test_case_id")
+        .notNull()
+        .references(() => testCases.id),
     llmProvider: text("llm_provider").notNull(),
     runNumber: integer("run_number").notNull(),
     actualOutput: text("actual_output"),
@@ -48,13 +56,15 @@ export const testResults = sqliteTable("test_results", {
 
 export const improvementJobs = sqliteTable("improvement_jobs", {
     id: text("id").primaryKey(),
-    promptId: integer("prompt_id").notNull(),
+    promptId: integer("prompt_id")
+        .notNull()
+        .references(() => prompts.id),
     status: text("status").notNull().default("pending"),
     currentIteration: integer("current_iteration").notNull().default(0),
     maxIterations: integer("max_iterations").notNull(),
     bestScore: real("best_score"),
     bestPromptContent: text("best_prompt_content"),
-    bestPromptVersionId: integer("best_prompt_version_id"),
+    bestPromptVersionId: integer("best_prompt_version_id").references(() => prompts.id),
     log: text("log"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
