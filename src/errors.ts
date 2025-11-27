@@ -110,7 +110,7 @@ export function isAppError(error: unknown): error is AppError {
  * Asserts that a value is not null or undefined.
  * Throws NotFoundError if the value is nullish.
  * This is a type-narrowing assertion function.
- * 
+ *
  * @example
  * const prompt = getPromptById(id);
  * requireEntity(prompt, "Prompt", id);
@@ -129,7 +129,7 @@ export function requireEntity<T>(
 /**
  * Returns the value if not null/undefined, or throws NotFoundError.
  * Use when you need the value inline rather than as an assertion.
- * 
+ *
  * @example
  * const prompt = ensureExists(getPromptById(id), "Prompt", id);
  * // prompt is typed as Prompt
@@ -203,4 +203,3 @@ export const Option = {
         return opt === null ? null : fn(opt);
     },
 };
-

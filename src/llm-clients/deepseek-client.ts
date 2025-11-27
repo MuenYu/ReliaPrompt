@@ -61,11 +61,7 @@ export class DeepseekClient implements LLMClient {
 
     async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {
         const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
-        return this.makeRequest(
-            [{ role: "user", content: improvementPrompt }],
-            0.7,
-            currentPrompt
-        );
+        return this.makeRequest([{ role: "user", content: improvementPrompt }], 0.7, currentPrompt);
     }
 }
 

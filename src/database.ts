@@ -198,7 +198,11 @@ export function getPromptVersions(name: string): Prompt[] {
 }
 
 export function getAllPrompts(): Prompt[] {
-    return getDb().select().from(prompts).orderBy(prompts.promptGroupId, desc(prompts.version)).all();
+    return getDb()
+        .select()
+        .from(prompts)
+        .orderBy(prompts.promptGroupId, desc(prompts.version))
+        .all();
 }
 
 export function createTestCase(promptId: number, input: string, expectedOutput: string) {

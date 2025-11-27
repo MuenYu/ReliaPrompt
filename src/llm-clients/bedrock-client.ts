@@ -95,11 +95,7 @@ export class BedrockClient implements LLMClient {
     }
 
     async complete(systemPrompt: string, userMessage: string): Promise<string> {
-        return this.makeRequest(
-            [{ role: "user", content: userMessage }],
-            0.1,
-            systemPrompt
-        );
+        return this.makeRequest([{ role: "user", content: userMessage }], 0.1, systemPrompt);
     }
 
     async improvePrompt(currentPrompt: string, testResults: TestResultSummary[]): Promise<string> {

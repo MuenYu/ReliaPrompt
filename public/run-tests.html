@@ -11,10 +11,17 @@
             <!-- Navbar -->
             <nav class="navbar">
                 <a href="/test-cases.html" class="navbar-brand">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                        <path d="M2 12l10 5 10-5" />
                     </svg>
                     <span>Relia Prompt</span>
                 </a>
@@ -24,9 +31,7 @@
                     <a href="/improve.html">Auto-Improve</a>
                 </div>
                 <div class="navbar-actions">
-                    <button class="btn-text" id="setup-btn" title="Setup">
-                        Setup
-                    </button>
+                    <button class="btn-text" id="setup-btn" title="Setup">Setup</button>
                 </div>
             </nav>
 
@@ -36,9 +41,16 @@
                     <div class="sidebar-header">
                         <h3>Prompts</h3>
                         <button class="btn-new-prompt" id="new-prompt-btn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19"/>
-                                <line x1="5" y1="12" x2="19" y2="12"/>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
                             </svg>
                             <span>New Prompt</span>
                         </button>
@@ -59,12 +71,19 @@
 
                     <!-- No Prompt Selected State -->
                     <div id="no-prompt-message" class="no-prompt-selected">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
                         </svg>
                         <h3>Select a Prompt</h3>
                         <p>Choose a prompt from the sidebar to run tests</p>
@@ -74,25 +93,55 @@
                     <div id="test-section" class="hidden">
                         <div class="card">
                             <h2>Test "<span id="selected-prompt-name"></span>"</h2>
-                            <div id="test-case-count" style="color: var(--color-text-muted); margin-bottom: 16px;"></div>
-                            
-                            <div class="runs-config" style="margin-bottom: 16px;">
-                                <label for="runs-per-test" style="display: block; margin-bottom: 8px; font-weight: 500;">Runs per test case:</label>
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <input type="range" id="runs-per-test" min="1" max="50" value="10" style="flex: 1; max-width: 200px;" />
-                                    <span id="runs-per-test-value" style="min-width: 24px; font-weight: 600;">10</span>
+                            <div
+                                id="test-case-count"
+                                style="color: var(--color-text-muted); margin-bottom: 16px"
+                            ></div>
+
+                            <div class="runs-config" style="margin-bottom: 16px">
+                                <label
+                                    for="runs-per-test"
+                                    style="display: block; margin-bottom: 8px; font-weight: 500"
+                                    >Runs per test case:</label
+                                >
+                                <div style="display: flex; align-items: center; gap: 12px">
+                                    <input
+                                        type="range"
+                                        id="runs-per-test"
+                                        min="1"
+                                        max="50"
+                                        value="10"
+                                        style="flex: 1; max-width: 200px"
+                                    />
+                                    <span
+                                        id="runs-per-test-value"
+                                        style="min-width: 24px; font-weight: 600"
+                                        >10</span
+                                    >
                                 </div>
-                                <small style="color: var(--color-text-muted); display: block; margin-top: 4px;">More runs = more reliable results, but takes longer</small>
+                                <small
+                                    style="
+                                        color: var(--color-text-muted);
+                                        display: block;
+                                        margin-top: 4px;
+                                    "
+                                    >More runs = more reliable results, but takes longer</small
+                                >
                             </div>
-                            
+
                             <button id="run-btn" disabled>Run Tests</button>
 
                             <div id="progress-section" class="progress-section hidden">
                                 <div class="progress-label">Overall Progress</div>
                                 <div class="progress-bar-container">
-                                    <div id="progress-bar" class="progress-bar" style="width: 0%">0%</div>
+                                    <div id="progress-bar" class="progress-bar" style="width: 0%">
+                                        0%
+                                    </div>
                                 </div>
-                                <div id="progress-details" style="color: var(--color-text-muted); font-size: 14px;"></div>
+                                <div
+                                    id="progress-details"
+                                    style="color: var(--color-text-muted); font-size: 14px"
+                                ></div>
                             </div>
                         </div>
 
@@ -114,9 +163,16 @@
                 <div class="modal-header">
                     <h2>LLM Configuration</h2>
                     <button class="modal-close" id="config-close-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
                 </div>
@@ -125,31 +181,61 @@
                         <div class="provider-section">
                             <h3>
                                 OpenAI
-                                <span id="openai-status" class="status-badge not-configured">Not configured</span>
+                                <span id="openai-status" class="status-badge not-configured"
+                                    >Not configured</span
+                                >
                             </h3>
                             <div class="form-group">
                                 <label for="openai_api_key">API Key</label>
-                                <input type="password" id="openai_api_key" name="openai_api_key" placeholder="sk-..." />
-                                <small>Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Dashboard</a></small>
+                                <input
+                                    type="password"
+                                    id="openai_api_key"
+                                    name="openai_api_key"
+                                    placeholder="sk-..."
+                                />
+                                <small
+                                    >Get your API key from
+                                    <a href="https://platform.openai.com/api-keys" target="_blank"
+                                        >OpenAI Dashboard</a
+                                    ></small
+                                >
                             </div>
                         </div>
 
                         <div class="provider-section">
                             <h3>
                                 AWS Bedrock
-                                <span id="bedrock-status" class="status-badge not-configured">Not configured</span>
+                                <span id="bedrock-status" class="status-badge not-configured"
+                                    >Not configured</span
+                                >
                             </h3>
                             <div class="form-group">
                                 <label for="bedrock_access_key_id">Access Key ID</label>
-                                <input type="password" id="bedrock_access_key_id" name="bedrock_access_key_id" placeholder="AKIA..." />
+                                <input
+                                    type="password"
+                                    id="bedrock_access_key_id"
+                                    name="bedrock_access_key_id"
+                                    placeholder="AKIA..."
+                                />
                             </div>
                             <div class="form-group">
                                 <label for="bedrock_secret_access_key">Secret Access Key</label>
-                                <input type="password" id="bedrock_secret_access_key" name="bedrock_secret_access_key" placeholder="..." />
+                                <input
+                                    type="password"
+                                    id="bedrock_secret_access_key"
+                                    name="bedrock_secret_access_key"
+                                    placeholder="..."
+                                />
                             </div>
                             <div class="form-group">
                                 <label for="bedrock_region">Region</label>
-                                <input type="text" id="bedrock_region" name="bedrock_region" placeholder="us-east-1" value="us-east-1" />
+                                <input
+                                    type="text"
+                                    id="bedrock_region"
+                                    name="bedrock_region"
+                                    placeholder="us-east-1"
+                                    value="us-east-1"
+                                />
                                 <small>AWS region where Bedrock is enabled</small>
                             </div>
                         </div>
@@ -157,17 +243,31 @@
                         <div class="provider-section">
                             <h3>
                                 Deepseek
-                                <span id="deepseek-status" class="status-badge not-configured">Not configured</span>
+                                <span id="deepseek-status" class="status-badge not-configured"
+                                    >Not configured</span
+                                >
                             </h3>
                             <div class="form-group">
                                 <label for="deepseek_api_key">API Key</label>
-                                <input type="password" id="deepseek_api_key" name="deepseek_api_key" placeholder="sk-..." />
-                                <small>Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank">Deepseek Platform</a></small>
+                                <input
+                                    type="password"
+                                    id="deepseek_api_key"
+                                    name="deepseek_api_key"
+                                    placeholder="sk-..."
+                                />
+                                <small
+                                    >Get your API key from
+                                    <a href="https://platform.deepseek.com/api_keys" target="_blank"
+                                        >Deepseek Platform</a
+                                    ></small
+                                >
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="secondary" onclick="closeConfigModal()">Cancel</button>
+                        <button type="button" class="secondary" onclick="closeConfigModal()">
+                            Cancel
+                        </button>
                         <button type="submit">Save Configuration</button>
                     </div>
                 </form>
@@ -180,9 +280,16 @@
                 <div class="modal-header">
                     <h2>Create New Prompt</h2>
                     <button class="modal-close" id="new-prompt-close-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
                 </div>
@@ -190,15 +297,29 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="new-prompt-name">Prompt Name</label>
-                            <input type="text" id="new-prompt-name" name="name" placeholder="e.g., extract-entities" required />
+                            <input
+                                type="text"
+                                id="new-prompt-name"
+                                name="name"
+                                placeholder="e.g., extract-entities"
+                                required
+                            />
                         </div>
                         <div class="form-group">
                             <label for="new-prompt-content">Prompt Content</label>
-                            <textarea id="new-prompt-content" name="content" class="tall" placeholder="Enter your system prompt here..." required></textarea>
+                            <textarea
+                                id="new-prompt-content"
+                                name="content"
+                                class="tall"
+                                placeholder="Enter your system prompt here..."
+                                required
+                            ></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="secondary" onclick="closeNewPromptModal()">Cancel</button>
+                        <button type="button" class="secondary" onclick="closeNewPromptModal()">
+                            Cancel
+                        </button>
                         <button type="submit">Create Prompt</button>
                     </div>
                 </form>
@@ -209,11 +330,21 @@
         <div class="modal-overlay" id="edit-prompt-modal">
             <div class="modal">
                 <div class="modal-header">
-                    <h2>Edit "<span id="edit-prompt-name-display"></span>" <span id="edit-prompt-version" class="badge badge-version"></span></h2>
+                    <h2>
+                        Edit "<span id="edit-prompt-name-display"></span>"
+                        <span id="edit-prompt-version" class="badge badge-version"></span>
+                    </h2>
                     <button class="modal-close" id="edit-prompt-close-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
                         </svg>
                     </button>
                 </div>
@@ -221,12 +352,20 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="edit-prompt-content">Prompt Content</label>
-                            <textarea id="edit-prompt-content" name="content" class="tall" placeholder="Enter your system prompt here..." required></textarea>
+                            <textarea
+                                id="edit-prompt-content"
+                                name="content"
+                                class="tall"
+                                placeholder="Enter your system prompt here..."
+                                required
+                            ></textarea>
                             <small>Saving will create a new version of this prompt</small>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="secondary" onclick="closeEditPromptModal()">Cancel</button>
+                        <button type="button" class="secondary" onclick="closeEditPromptModal()">
+                            Cancel
+                        </button>
                         <button type="submit">Save as New Version</button>
                     </div>
                 </form>
@@ -240,20 +379,20 @@
             let pollInterval = null;
 
             // Listen for prompt selection from sidebar
-            window.addEventListener('promptSelected', (e) => {
+            window.addEventListener("promptSelected", (e) => {
                 selectedPromptId = e.detail.id;
                 selectedPromptName = e.detail.name;
                 updateUI();
                 loadTestCaseCount();
-                document.getElementById('results-section').classList.add('hidden');
-                document.getElementById('progress-section').classList.add('hidden');
+                document.getElementById("results-section").classList.add("hidden");
+                document.getElementById("progress-section").classList.add("hidden");
             });
 
             // Check for initial selection
-            window.addEventListener('promptsLoaded', (e) => {
+            window.addEventListener("promptsLoaded", (e) => {
                 const { prompts, selectedId } = e.detail;
                 if (selectedId) {
-                    const prompt = prompts.find(p => p.id === selectedId);
+                    const prompt = prompts.find((p) => p.id === selectedId);
                     if (prompt) {
                         selectedPromptId = prompt.id;
                         selectedPromptName = prompt.name;
@@ -265,40 +404,44 @@
 
             function updateUI() {
                 const hasSelection = !!selectedPromptId;
-                document.getElementById('test-section').classList.toggle('hidden', !hasSelection);
-                document.getElementById('no-prompt-message').classList.toggle('hidden', hasSelection);
-                document.querySelector('.navbar-nav').classList.toggle('hidden', !hasSelection);
+                document.getElementById("test-section").classList.toggle("hidden", !hasSelection);
+                document
+                    .getElementById("no-prompt-message")
+                    .classList.toggle("hidden", hasSelection);
+                document.querySelector(".navbar-nav").classList.toggle("hidden", !hasSelection);
                 if (selectedPromptName) {
-                    document.getElementById('selected-prompt-name').textContent = selectedPromptName;
+                    document.getElementById("selected-prompt-name").textContent =
+                        selectedPromptName;
                 }
             }
 
             function getRunsPerTest() {
-                return parseInt(document.getElementById('runs-per-test').value, 10) || 10;
+                return parseInt(document.getElementById("runs-per-test").value, 10) || 10;
             }
 
             function updateRunsDisplay() {
                 const runs = getRunsPerTest();
-                document.getElementById('runs-per-test-value').textContent = runs;
+                document.getElementById("runs-per-test-value").textContent = runs;
                 updateTestCaseCountText();
             }
 
             function updateTestCaseCountText() {
-                const countEl = document.getElementById('test-case-count');
+                const countEl = document.getElementById("test-case-count");
                 if (!countEl.dataset.count) return;
-                
+
                 const count = parseInt(countEl.dataset.count, 10);
                 const runs = getRunsPerTest();
-                countEl.textContent = count > 0
-                    ? `${count} test case(s) will be run ${runs} time${runs !== 1 ? 's' : ''} each across all LLMs`
-                    : 'No test cases found. Add test cases first.';
+                countEl.textContent =
+                    count > 0
+                        ? `${count} test case(s) will be run ${runs} time${runs !== 1 ? "s" : ""} each across all LLMs`
+                        : "No test cases found. Add test cases first.";
             }
 
             async function loadTestCaseCount() {
                 if (!selectedPromptId) {
-                    document.getElementById('test-case-count').textContent = '';
-                    document.getElementById('test-case-count').dataset.count = '';
-                    document.getElementById('run-btn').disabled = true;
+                    document.getElementById("test-case-count").textContent = "";
+                    document.getElementById("test-case-count").dataset.count = "";
+                    document.getElementById("run-btn").disabled = true;
                     return;
                 }
                 try {
@@ -306,42 +449,43 @@
                     const testCases = await res.json();
                     const count = testCases.length;
                     const runs = getRunsPerTest();
-                    document.getElementById('test-case-count').dataset.count = count;
-                    document.getElementById('test-case-count').textContent =
+                    document.getElementById("test-case-count").dataset.count = count;
+                    document.getElementById("test-case-count").textContent =
                         count > 0
-                            ? `${count} test case(s) will be run ${runs} time${runs !== 1 ? 's' : ''} each across all LLMs`
-                            : 'No test cases found. Add test cases first.';
-                    document.getElementById('run-btn').disabled = count === 0;
+                            ? `${count} test case(s) will be run ${runs} time${runs !== 1 ? "s" : ""} each across all LLMs`
+                            : "No test cases found. Add test cases first.";
+                    document.getElementById("run-btn").disabled = count === 0;
                 } catch (error) {
-                    document.getElementById('test-case-count').textContent = 'Error loading test cases';
-                    document.getElementById('run-btn').disabled = true;
+                    document.getElementById("test-case-count").textContent =
+                        "Error loading test cases";
+                    document.getElementById("run-btn").disabled = true;
                 }
             }
 
             async function runTests() {
                 if (!selectedPromptId) return;
-                document.getElementById('run-btn').disabled = true;
-                document.getElementById('progress-section').classList.remove('hidden');
-                document.getElementById('results-section').classList.add('hidden');
-                AppUtils.showAppMessage('Starting test run...', 'info');
+                document.getElementById("run-btn").disabled = true;
+                document.getElementById("progress-section").classList.remove("hidden");
+                document.getElementById("results-section").classList.add("hidden");
+                AppUtils.showAppMessage("Starting test run...", "info");
 
                 try {
                     const runsPerTest = getRunsPerTest();
-                    const res = await fetch('/api/test/run', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                    const res = await fetch("/api/test/run", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ promptId: selectedPromptId, runsPerTest }),
                     });
                     if (!res.ok) {
                         const error = await res.json();
-                        throw new Error(error.error || 'Failed to start test run');
+                        throw new Error(error.error || "Failed to start test run");
                     }
                     const { jobId } = await res.json();
                     pollProgress(jobId);
                 } catch (error) {
-                    AppUtils.showAppMessage(error.message, 'error');
-                    document.getElementById('run-btn').disabled = false;
-                    document.getElementById('progress-section').classList.add('hidden');
+                    AppUtils.showAppMessage(error.message, "error");
+                    document.getElementById("run-btn").disabled = false;
+                    document.getElementById("progress-section").classList.add("hidden");
                 }
             }
 
@@ -353,75 +497,81 @@
                         const status = await res.json();
                         updateProgress(status);
 
-                        if (status.status === 'completed') {
+                        if (status.status === "completed") {
                             clearInterval(pollInterval);
-                            document.getElementById('run-btn').disabled = false;
-                            document.getElementById('app-message').innerHTML = '';
+                            document.getElementById("run-btn").disabled = false;
+                            document.getElementById("app-message").innerHTML = "";
                             showResults(status.results);
-                        } else if (status.status === 'failed') {
+                        } else if (status.status === "failed") {
                             clearInterval(pollInterval);
-                            document.getElementById('run-btn').disabled = false;
-                            AppUtils.showAppMessage(status.error || 'Test run failed', 'error');
+                            document.getElementById("run-btn").disabled = false;
+                            AppUtils.showAppMessage(status.error || "Test run failed", "error");
                         }
                     } catch (error) {
-                        AppUtils.showAppMessage('Error checking test status', 'error');
+                        AppUtils.showAppMessage("Error checking test status", "error");
                     }
                 }, 1000);
             }
 
             function updateProgress(status) {
                 const progress = status.progress || 0;
-                document.getElementById('progress-bar').style.width = progress + '%';
-                document.getElementById('progress-bar').textContent = progress + '%';
-                document.getElementById('progress-details').textContent =
+                document.getElementById("progress-bar").style.width = progress + "%";
+                document.getElementById("progress-bar").textContent = progress + "%";
+                document.getElementById("progress-details").textContent =
                     `${status.completedTests || 0} / ${status.totalTests || 0} tests completed`;
             }
 
             function showResults(results) {
                 if (!results) return;
-                document.getElementById('results-section').classList.remove('hidden');
+                document.getElementById("results-section").classList.remove("hidden");
 
-                document.getElementById('score-cards').innerHTML = `
+                document.getElementById("score-cards").innerHTML = `
                     <div class="score-card overall"><h3>Overall Score</h3><div class="score">${results.overallScore}%</div></div>
-                    ${results.llmResults.map(llm => `<div class="score-card"><h3>${llm.llmName}</h3><div class="score">${llm.score}%</div></div>`).join('')}
+                    ${results.llmResults.map((llm) => `<div class="score-card"><h3>${llm.llmName}</h3><div class="score">${llm.score}%</div></div>`).join("")}
                 `;
 
-                document.getElementById('llm-results').innerHTML = results.llmResults.map(llm => {
-                    const badgeClass = llm.score >= 80 ? '' : llm.score >= 50 ? 'medium' : 'low';
-                    return `
+                document.getElementById("llm-results").innerHTML = results.llmResults
+                    .map((llm) => {
+                        const badgeClass =
+                            llm.score >= 80 ? "" : llm.score >= 50 ? "medium" : "low";
+                        return `
                         <div class="llm-result-card">
                             <h4>${llm.llmName} <span class="score-badge ${badgeClass}">${llm.correctCount}/${llm.totalRuns} correct (${llm.score}%)</span></h4>
                             <div id="details-${llm.llmName}" class="hidden">
-                                ${llm.testCaseResults.map((tc, i) => {
-                                    const successRate = (tc.correctRuns / tc.runs.length) * 100;
-                                    const statusClass = successRate >= 80 ? 'success' : 'failure';
-                                    return `
+                                ${llm.testCaseResults
+                                    .map((tc, i) => {
+                                        const successRate = (tc.correctRuns / tc.runs.length) * 100;
+                                        const statusClass =
+                                            successRate >= 80 ? "success" : "failure";
+                                        return `
                                         <div class="test-case-detail">
                                             <div class="header"><strong>Test Case #${i + 1}</strong><span class="correct-count ${statusClass}">${tc.correctRuns}/${tc.runs.length} correct</span></div>
                                             <div style="margin-bottom: 5px;"><strong>Input:</strong></div>
-                                            <div class="json-preview">${escapeHtml(tc.input.substring(0, 200))}${tc.input.length > 200 ? '...' : ''}</div>
+                                            <div class="json-preview">${escapeHtml(tc.input.substring(0, 200))}${tc.input.length > 200 ? "..." : ""}</div>
                                             <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
                                             <div class="json-preview">${formatJSON(tc.expectedOutput)}</div>
-                                            ${tc.runs.some(r => !r.isCorrect) ? `<div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Wrong Output:</strong></div><div class="json-preview">${escapeHtml((tc.runs.find(r => !r.isCorrect)?.actualOutput || 'N/A').substring(0, 500))}</div>` : ''}
+                                            ${tc.runs.some((r) => !r.isCorrect) ? `<div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Wrong Output:</strong></div><div class="json-preview">${escapeHtml((tc.runs.find((r) => !r.isCorrect)?.actualOutput || "N/A").substring(0, 500))}</div>` : ""}
                                         </div>
                                     `;
-                                }).join('')}
+                                    })
+                                    .join("")}
                             </div>
                             <button class="details-toggle" onclick="toggleDetails('${llm.llmName}')">Show Details</button>
                         </div>
                     `;
-                }).join('');
+                    })
+                    .join("");
             }
 
             function toggleDetails(llmName) {
-                const el = document.getElementById('details-' + llmName);
-                const btn = el.parentElement.querySelector('.details-toggle');
-                el.classList.toggle('hidden');
-                btn.textContent = el.classList.contains('hidden') ? 'Show Details' : 'Hide Details';
+                const el = document.getElementById("details-" + llmName);
+                const btn = el.parentElement.querySelector(".details-toggle");
+                el.classList.toggle("hidden");
+                btn.textContent = el.classList.contains("hidden") ? "Show Details" : "Hide Details";
             }
 
             function escapeHtml(text) {
-                const div = document.createElement('div');
+                const div = document.createElement("div");
                 div.textContent = text;
                 return div.innerHTML;
             }
@@ -434,8 +584,8 @@
                 }
             }
 
-            document.getElementById('run-btn').addEventListener('click', runTests);
-            document.getElementById('runs-per-test').addEventListener('input', updateRunsDisplay);
+            document.getElementById("run-btn").addEventListener("click", runTests);
+            document.getElementById("runs-per-test").addEventListener("input", updateRunsDisplay);
 
             // Initialize
             updateUI();

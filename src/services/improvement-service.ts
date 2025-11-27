@@ -56,10 +56,7 @@ export async function startImprovement(promptId: number, maxIterations: number):
 
     const testCases = getTestCasesForPrompt(promptId);
     // Use requireEntity for explicit assertion with clear error message
-    requireEntity(
-        testCases.length > 0 ? testCases : null,
-        `Test cases for prompt ${promptId}`
-    );
+    requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
     const clients = getConfiguredClients();
     if (clients.length === 0) {
