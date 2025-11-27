@@ -1140,6 +1140,37 @@ button.small,
     border-radius: 100px;
     font-size: 13px;
     font-weight: 500;
+    cursor: default;
+    position: relative;
+}
+
+.score-badge[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    margin-bottom: 6px;
+    z-index: 100;
+}
+
+.score-badge[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1f2937;
+    margin-bottom: -4px;
+    z-index: 100;
 }
 
 .score-badge.low {
@@ -1148,6 +1179,11 @@ button.small,
 }
 
 .score-badge.medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.score-badge.best {
     background: #fef3c7;
     color: #92400e;
 }

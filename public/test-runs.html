@@ -110,7 +110,7 @@
                                         id="runs-per-test"
                                         min="1"
                                         max="50"
-                                        value="10"
+                                        value="1"
                                         style="flex: 1; max-width: 200px"
                                     />
                                     <span
@@ -149,17 +149,26 @@
                             <div class="card">
                                 <h2>
                                     Results
-                                    <span id="overall-score-badge" class="score-badge"></span>
+                                    <span
+                                        id="overall-score-badge"
+                                        class="score-badge"
+                                        data-tooltip="Overall"
+                                    ></span>
+                                    <span
+                                        id="best-score-badge"
+                                        class="score-badge best hidden"
+                                        data-tooltip="Best LLM"
+                                    ></span>
                                 </h2>
                                 <div id="llm-results" class="llm-results"></div>
                             </div>
                         </div>
 
                         <!-- Previous Test Runs Section -->
-                        <div id="previous-runs-section" class="card" style="margin-top: 24px;">
+                        <div id="previous-runs-section" class="card" style="margin-top: 24px">
                             <h2>Previous Test Runs</h2>
                             <div id="previous-runs-list">
-                                <div style="color: var(--color-text-muted);">Loading...</div>
+                                <div style="color: var(--color-text-muted)">Loading...</div>
                             </div>
                         </div>
                     </div>
@@ -533,35 +542,55 @@
             async function loadPreviousTestRuns() {
                 const container = document.getElementById("previous-runs-list");
                 if (!selectedPromptId) {
-                    container.innerHTML = '<div style="color: var(--color-text-muted);">Select a prompt to see previous test runs</div>';
+                    container.innerHTML =
+                        '<div style="color: var(--color-text-muted);">Select a prompt to see previous test runs</div>';
                     return;
                 }
-                
+
                 try {
                     const res = await fetch(`/api/prompts/${selectedPromptId}/test-jobs`);
                     const jobs = await res.json();
-                    
+
                     if (jobs.length === 0) {
-                        container.innerHTML = '<div style="color: var(--color-text-muted);">No previous test runs for this prompt</div>';
+                        container.innerHTML =
+                            '<div style="color: var(--color-text-muted);">No previous test runs for this prompt</div>';
                         return;
                     }
-                    
-                    container.innerHTML = jobs.map(job => {
-                        const date = new Date(job.createdAt);
-                        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-                        const statusClass = job.status === 'completed' ? 'success' : job.status === 'failed' ? 'failure' : 'pending';
-                        const statusText = job.status.charAt(0).toUpperCase() + job.status.slice(1);
-                        
-                        let scoreHtml = '';
-                        if (job.status === 'completed' && job.results) {
-                            try {
-                                const results = JSON.parse(job.results);
-                                const badgeClass = results.overallScore >= 80 ? '' : results.overallScore >= 50 ? 'medium' : 'low';
-                                scoreHtml = `<span class="score-badge ${badgeClass}">${results.overallScore}%</span>`;
-                            } catch {}
-                        }
-                        
-                        return `
+
+                    container.innerHTML = jobs
+                        .map((job) => {
+                            const date = new Date(job.createdAt);
+                            const formattedDate =
+                                date.toLocaleDateString() + " " + date.toLocaleTimeString();
+                            const statusClass =
+                                job.status === "completed"
+                                    ? "success"
+                                    : job.status === "failed"
+                                      ? "failure"
+                                      : "pending";
+                            const statusText =
+                                job.status.charAt(0).toUpperCase() + job.status.slice(1);
+
+                            let scoreHtml = "";
+                            if (job.status === "completed" && job.results) {
+                                try {
+                                    const results = JSON.parse(job.results);
+                                    const overallBadgeClass =
+                                        results.overallScore >= 80
+                                            ? ""
+                                            : results.overallScore >= 50
+                                              ? "medium"
+                                              : "low";
+                                    const bestScore = getBestLLMScore(results.llmResults);
+
+                                    scoreHtml = `<span class="score-badge ${overallBadgeClass}" data-tooltip="Overall">${results.overallScore}%</span>`;
+                                    if (bestScore !== null) {
+                                        scoreHtml += `<span class="score-badge best" data-tooltip="Best LLM">${bestScore}%</span>`;
+                                    }
+                                } catch {}
+                            }
+
+                            return `
                             <div class="previous-run-item" data-job-id="${job.id}" onclick="viewPreviousRun('${job.id}')">
                                 <div class="previous-run-info">
                                     <span class="previous-run-date">${escapeHtml(formattedDate)}</span>
@@ -573,9 +602,11 @@
                                 </div>
                             </div>
                         `;
-                    }).join('');
+                        })
+                        .join("");
                 } catch (error) {
-                    container.innerHTML = '<div style="color: var(--color-text-muted);">Error loading previous test runs</div>';
+                    container.innerHTML =
+                        '<div style="color: var(--color-text-muted);">Error loading previous test runs</div>';
                 }
             }
 
@@ -583,11 +614,13 @@
                 try {
                     const res = await fetch(`/api/test/status/${jobId}`);
                     const status = await res.json();
-                    
+
                     if (status.results) {
                         showResults(status.results);
                         // Scroll to results
-                        document.getElementById("results-section").scrollIntoView({ behavior: 'smooth' });
+                        document
+                            .getElementById("results-section")
+                            .scrollIntoView({ behavior: "smooth" });
                     } else {
                         AppUtils.showAppMessage("No results available for this test run", "info");
                     }
@@ -657,6 +690,11 @@
                     `${status.completedTests || 0} / ${status.totalTests || 0} tests completed`;
             }
 
+            function getBestLLMScore(llmResults) {
+                if (!llmResults || llmResults.length === 0) return null;
+                return Math.max(...llmResults.map((llm) => llm.score));
+            }
+
             function showResults(results) {
                 if (!results) return;
                 document.getElementById("results-section").classList.remove("hidden");
@@ -667,13 +705,30 @@
                     storedLlmResults[llm.llmName] = llm;
                 });
 
+                // Get best LLM score
+                const bestScore = getBestLLMScore(results.llmResults);
+
                 // Set overall score badge next to Results heading
                 const overallBadgeClass =
                     results.overallScore >= 80 ? "" : results.overallScore >= 50 ? "medium" : "low";
+                const bestBadgeClass = bestScore >= 80 ? "" : bestScore >= 50 ? "medium" : "low";
+
                 document.getElementById("overall-score-badge").className =
                     `score-badge ${overallBadgeClass}`;
                 document.getElementById("overall-score-badge").textContent =
                     `${results.overallScore}%`;
+                document.getElementById("overall-score-badge").dataset.tooltip = "Overall";
+
+                // Add best LLM score badge if we have multiple LLMs or just show it anyway
+                const bestBadgeEl = document.getElementById("best-score-badge");
+                if (bestScore !== null) {
+                    bestBadgeEl.className = `score-badge best`;
+                    bestBadgeEl.textContent = `${bestScore}%`;
+                    bestBadgeEl.dataset.tooltip = "Best LLM";
+                    bestBadgeEl.classList.remove("hidden");
+                } else {
+                    bestBadgeEl.classList.add("hidden");
+                }
 
                 document.getElementById("llm-results").innerHTML = results.llmResults
                     .map((llm) => {

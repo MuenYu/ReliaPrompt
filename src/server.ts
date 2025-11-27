@@ -262,9 +262,13 @@ app.post("/api/test/run", async (req, res) => {
             throw new ValidationError("promptId is required");
         }
 
-        const runs = runsPerTest ? parseInt(runsPerTest, 10) : 10;
-        if (runs < 1 || runs > 100) {
-            throw new ValidationError("runsPerTest must be between 1 and 100");
+        if (runsPerTest === undefined || runsPerTest === null) {
+            throw new ValidationError("runsPerTest is required");
+        }
+
+        const runs = parseInt(runsPerTest, 10);
+        if (isNaN(runs) || runs < 1 || runs > 100) {
+            throw new ValidationError("runsPerTest must be a number between 1 and 100");
         }
 
         const jobId = await startTestRun(promptId, runs);
