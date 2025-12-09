@@ -59,7 +59,7 @@ export function parseJSON(input: string): { success: boolean; value?: unknown; e
 function getUniqueValues(arr: unknown[]): unknown[] {
     const unique: unknown[] = [];
     for (const item of arr) {
-        if (!unique.some(u => equal(u, item))) {
+        if (!unique.some((u) => equal(u, item))) {
             unique.push(item);
         }
     }
@@ -70,14 +70,17 @@ function getUniqueValues(arr: unknown[]): unknown[] {
  * Check if a value exists in an array using deep equality.
  */
 function existsInArray(value: unknown, arr: unknown[]): boolean {
-    return arr.some(item => equal(item, value));
+    return arr.some((item) => equal(item, value));
 }
 
 /**
  * Compare two arrays as sets (order-agnostic, unique values).
  * Returns metrics about expected found and unexpected values.
  */
-function compareArraysAsSet(expected: unknown[], actual: unknown[]): {
+function compareArraysAsSet(
+    expected: unknown[],
+    actual: unknown[]
+): {
     expectedFound: number;
     expectedTotal: number;
     unexpectedCount: number;
@@ -110,7 +113,10 @@ function compareArraysAsSet(expected: unknown[], actual: unknown[]): {
  * Compare two objects with partial matching.
  * Tracks correct, missing, and extra keys.
  */
-function compareObjects(expected: Record<string, unknown>, actual: Record<string, unknown>): {
+function compareObjects(
+    expected: Record<string, unknown>,
+    actual: Record<string, unknown>
+): {
     expectedFound: number;
     expectedTotal: number;
     unexpectedCount: number;
@@ -146,7 +152,10 @@ function compareObjects(expected: Record<string, unknown>, actual: Record<string
  * - Objects: partial key matching
  * - Primitives: exact match (score 100 or 0)
  */
-function calculateMetrics(expected: unknown, actual: unknown): {
+function calculateMetrics(
+    expected: unknown,
+    actual: unknown
+): {
     expectedFound: number;
     expectedTotal: number;
     unexpectedCount: number;
@@ -195,7 +204,11 @@ function calculateMetrics(expected: unknown, actual: unknown): {
  * Calculate score from metrics.
  * Formula: expectedFound / (expectedTotal + unexpectedCount) * 100
  */
-function calculateScore(expectedFound: number, expectedTotal: number, unexpectedCount: number): number {
+function calculateScore(
+    expectedFound: number,
+    expectedTotal: number,
+    unexpectedCount: number
+): number {
     const denominator = expectedTotal + unexpectedCount;
     if (denominator === 0) {
         // Edge case: no expected values and no unexpected values
@@ -231,7 +244,11 @@ export function compareJSON(expected: string, actual: string): ComparisonResult 
     }
 
     const metrics = calculateMetrics(expectedResult.value, actualResult.value);
-    const score = calculateScore(metrics.expectedFound, metrics.expectedTotal, metrics.unexpectedCount);
+    const score = calculateScore(
+        metrics.expectedFound,
+        metrics.expectedTotal,
+        metrics.unexpectedCount
+    );
     const isEqual = score === 100;
 
     return {
@@ -244,17 +261,4 @@ export function compareJSON(expected: string, actual: string): ComparisonResult 
         actualParsed: actualResult.value,
         error: isEqual ? undefined : "Values do not match",
     };
-}
-
-export function looksLikeJSON(input: string): boolean {
-    const trimmed = input.trim();
-    return (
-        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-        (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
-        trimmed === "true" ||
-        trimmed === "false" ||
-        trimmed === "null" ||
-        /^-?\d+(\.\d+)?$/.test(trimmed) ||
-        (trimmed.startsWith('"') && trimmed.endsWith('"'))
-    );
 }

@@ -21,5 +21,3 @@ export function refreshClients(): void {
     geminiClient.reset();
     setActiveClients(allClients);
 }
-
-export { allClients };

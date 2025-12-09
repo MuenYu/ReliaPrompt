@@ -103,19 +103,8 @@ export const improvementJobs = sqliteTable(
 );
 
 export type Config = typeof config.$inferSelect;
-export type NewConfig = typeof config.$inferInsert;
-
 export type Prompt = typeof prompts.$inferSelect;
-export type NewPrompt = typeof prompts.$inferInsert;
-
 export type TestCase = typeof testCases.$inferSelect;
-export type NewTestCase = typeof testCases.$inferInsert;
-
 export type TestJob = typeof testJobs.$inferSelect;
-export type NewTestJob = typeof testJobs.$inferInsert;
-
 export type TestResult = typeof testResults.$inferSelect;
-export type NewTestResult = typeof testResults.$inferInsert;
-
 export type ImprovementJob = typeof improvementJobs.$inferSelect;
-export type NewImprovementJob = typeof improvementJobs.$inferInsert;

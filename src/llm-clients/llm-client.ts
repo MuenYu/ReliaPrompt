@@ -33,20 +33,7 @@ export interface TestResultSummary {
     error?: string;
 }
 
-export interface LLMConfig {
-    openaiApiKey?: string;
-    bedrockAccessKeyId?: string;
-    bedrockSecretAccessKey?: string;
-    bedrockRegion?: string;
-    deepseekApiKey?: string;
-    geminiApiKey?: string;
-}
-
 let activeClients: LLMClient[] = [];
-
-export function getActiveClients(): LLMClient[] {
-    return activeClients;
-}
 
 export function setActiveClients(clients: LLMClient[]): void {
     activeClients = clients;

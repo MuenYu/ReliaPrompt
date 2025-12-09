@@ -67,15 +67,6 @@ export class DatabaseError extends AppError {
 }
 
 /**
- * Error thrown when a test run fails.
- */
-export class TestRunError extends AppError {
-    constructor(message: string) {
-        super(message, 500);
-    }
-}
-
-/**
  * Safely extracts an error message from an unknown error type.
  * Use this instead of `(error as Error).message`.
  */
@@ -97,13 +88,6 @@ export function getErrorStatusCode(error: unknown): number {
         return error.statusCode;
     }
     return 500;
-}
-
-/**
- * Type guard to check if an error is an AppError.
- */
-export function isAppError(error: unknown): error is AppError {
-    return error instanceof AppError;
 }
 
 /**
@@ -144,62 +128,3 @@ export function ensureExists<T>(
     }
     return value;
 }
-
-/**
- * Option type utilities for explicit nullable handling.
- * Provides a more functional approach to handling nullable values.
- */
-export type Option<T> = T | null;
-
-export const Option = {
-    /**
-     * Returns true if the option contains a value.
-     */
-    isSome<T>(opt: Option<T>): opt is T {
-        return opt !== null;
-    },
-
-    /**
-     * Returns true if the option is empty.
-     */
-    isNone<T>(opt: Option<T>): opt is null {
-        return opt === null;
-    },
-
-    /**
-     * Maps an option using a transform function. Returns null if option is null.
-     */
-    map<T, U>(opt: Option<T>, fn: (value: T) => U): Option<U> {
-        return opt === null ? null : fn(opt);
-    },
-
-    /**
-     * Returns the value or a default if the option is null.
-     */
-    getOrElse<T>(opt: Option<T>, defaultValue: T): T {
-        return opt === null ? defaultValue : opt;
-    },
-
-    /**
-     * Returns the value or throws an error if the option is null.
-     */
-    getOrThrow<T>(opt: Option<T>, resourceName: string, identifier?: string | number): T {
-        return ensureExists(opt, resourceName, identifier);
-    },
-
-    /**
-     * Executes a function if the option has a value.
-     */
-    ifSome<T>(opt: Option<T>, fn: (value: T) => void): void {
-        if (opt !== null) {
-            fn(opt);
-        }
-    },
-
-    /**
-     * Chains optional operations. Returns null if any step returns null.
-     */
-    flatMap<T, U>(opt: Option<T>, fn: (value: T) => Option<U>): Option<U> {
-        return opt === null ? null : fn(opt);
-    },
-};

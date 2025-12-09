@@ -248,14 +248,6 @@ export function getTestCaseById(id: number): TestCase | null {
     return getDb().select().from(testCases).where(eq(testCases.id, id)).get() ?? null;
 }
 
-/**
- * Gets a test case by ID or throws NotFoundError if not found.
- * Use this when you expect the test case to exist.
- */
-export function getTestCaseByIdOrFail(id: number): TestCase {
-    return ensureExists(getTestCaseById(id), "Test case", id);
-}
-
 export function getTestCasesForPrompt(promptId: number): TestCase[] {
     // Get the prompt to find its promptGroupId
     const prompt = getDb().select().from(prompts).where(eq(prompts.id, promptId)).get();
@@ -273,29 +265,6 @@ export function getTestCasesForPromptGroup(promptGroupId: number): TestCase[] {
         .where(eq(testCases.promptGroupId, promptGroupId))
         .orderBy(testCases.createdAt)
         .all();
-}
-
-// Legacy function - now just an alias for getTestCasesForPromptGroup
-export function getTestCasesForPromptGroupId(groupId: number): TestCase[] {
-    return getTestCasesForPromptGroup(groupId);
-}
-
-// Legacy function for backward compatibility
-export function getTestCasesForPromptName(promptName: string): TestCase[] {
-    // Find a prompt with this name and get its group ID
-    const prompt = getDb()
-        .select()
-        .from(prompts)
-        .where(eq(prompts.name, promptName))
-        .limit(1)
-        .get();
-    
-    if (!prompt) {
-        return [];
-    }
-    
-    const groupId = prompt.promptGroupId ?? prompt.id;
-    return getTestCasesForPromptGroup(groupId);
 }
 
 export function deleteTestCase(id: number): void {
@@ -397,15 +366,6 @@ export function createTestResult(
             .returning()
             .get();
     });
-}
-
-export function getTestResultsForJob(jobId: string): TestResult[] {
-    return getDb()
-        .select()
-        .from(testResults)
-        .where(eq(testResults.jobId, jobId))
-        .orderBy(testResults.testCaseId, testResults.llmProvider, testResults.runNumber)
-        .all();
 }
 
 export function createImprovementJob(id: string, promptId: number, maxIterations: number) {
