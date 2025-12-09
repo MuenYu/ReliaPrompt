@@ -779,6 +779,7 @@ async function loadConfigStatus() {
         );
         updateConfigBadge("deepseek-status", !!config.deepseek_api_key);
         updateConfigBadge("gemini-status", !!config.gemini_api_key);
+        updateConfigBadge("groq-status", !!config.groq_api_key);
 
         // Populate input fields with values from the database
         const fields = [
@@ -789,6 +790,7 @@ async function loadConfigStatus() {
             "deepseek_api_key",
             "bedrock_region",
             "gemini_api_key",
+            "groq_api_key",
         ];
 
         for (const field of fields) {
@@ -818,6 +820,7 @@ async function loadConfigStatus() {
         renderModelCheckboxes("bedrock-models", "Bedrock");
         renderModelCheckboxes("deepseek-models", "Deepseek");
         renderModelCheckboxes("gemini-models", "Gemini");
+        renderModelCheckboxes("groq-models", "Groq");
     } catch (error) {
         showAppMessage("Error loading configuration", "error");
     }
@@ -1106,6 +1109,16 @@ function getConfigModalHtml() {
                             </h3>
                             <div class="form-group">
                                 <input type="text" id="gemini_api_key" name="gemini_api_key" placeholder="API Key" />
+                            </div>
+                        </div>
+
+                        <div class="provider-section">
+                            <h3>
+                                Groq
+                                <span id="groq-status" class="status-badge not-configured">Not configured</span>
+                            </h3>
+                            <div class="form-group">
+                                <input type="text" id="groq_api_key" name="groq_api_key" placeholder="API Key (gsk_...)" />
                             </div>
                         </div>
                     </div>

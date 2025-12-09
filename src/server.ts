@@ -74,6 +74,7 @@ app.post("/api/config", (req, res) => {
             bedrock_region,
             deepseek_api_key,
             gemini_api_key,
+            groq_api_key,
             selected_models,
         } = req.body;
 
@@ -88,6 +89,7 @@ app.post("/api/config", (req, res) => {
             setConfig("bedrock_region", bedrock_region || "ap-southeast-2");
         if (deepseek_api_key !== undefined) setConfig("deepseek_api_key", deepseek_api_key);
         if (gemini_api_key !== undefined) setConfig("gemini_api_key", gemini_api_key);
+        if (groq_api_key !== undefined) setConfig("groq_api_key", groq_api_key);
         if (selected_models !== undefined) {
             // Store selected models as JSON string
             const modelsJson = Array.isArray(selected_models)
