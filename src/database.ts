@@ -118,7 +118,7 @@ export function deletePrompt(id: number): void {
         if (!prompt) return;
 
         const groupId = prompt.promptGroupId ?? id;
-        
+
         // Count how many prompts are in this group
         const totalInGroup = db
             .select()
@@ -210,25 +210,12 @@ export function getPromptVersionsByGroupId(groupId: number): Prompt[] {
         .all();
 }
 
-// Legacy function for backward compatibility - fetches versions by name
-export function getPromptVersions(name: string): Prompt[] {
-    return getDb()
-        .select()
-        .from(prompts)
-        .where(eq(prompts.name, name))
-        .orderBy(desc(prompts.version))
-        .all();
-}
-
-export function getAllPrompts(): Prompt[] {
-    return getDb()
-        .select()
-        .from(prompts)
-        .orderBy(prompts.promptGroupId, desc(prompts.version))
-        .all();
-}
-
-export function createTestCase(promptGroupId: number, input: string, expectedOutput: string) {
+export function createTestCase(
+    promptGroupId: number,
+    input: string,
+    expectedOutput: string,
+    expectedOutputType: string = "array"
+) {
     return withSave(() => {
         const createdAt = new Date().toISOString();
         return getDb()
@@ -237,6 +224,7 @@ export function createTestCase(promptGroupId: number, input: string, expectedOut
                 promptGroupId,
                 input,
                 expectedOutput,
+                expectedOutputType,
                 createdAt,
             })
             .returning()
@@ -273,9 +261,18 @@ export function deleteTestCase(id: number): void {
     });
 }
 
-export function updateTestCase(id: number, input: string, expectedOutput: string) {
+export function updateTestCase(
+    id: number,
+    input: string,
+    expectedOutput: string,
+    expectedOutputType: string
+) {
     withSave(() => {
-        getDb().update(testCases).set({ input, expectedOutput }).where(eq(testCases.id, id)).run();
+        getDb()
+            .update(testCases)
+            .set({ input, expectedOutput, expectedOutputType })
+            .where(eq(testCases.id, id))
+            .run();
     });
     return getTestCaseById(id);
 }
@@ -341,7 +338,6 @@ export function createTestResult(
     expectedFound: number,
     expectedTotal: number,
     unexpectedCount: number,
-    error?: string,
     durationMs?: number
 ) {
     return withSave(() => {
@@ -359,7 +355,6 @@ export function createTestResult(
                 expectedFound,
                 expectedTotal,
                 unexpectedCount,
-                error: error ?? null,
                 durationMs: durationMs ?? null,
                 createdAt,
             })

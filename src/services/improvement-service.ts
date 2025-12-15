@@ -11,7 +11,7 @@ import {
 } from "../database";
 import { getConfiguredClients, ModelSelection } from "../llm-clients";
 import {
-    runTestsForPromptContent,
+    runTests,
     getTestResultSummary,
     LLMTestResult,
     ModelRunner,
@@ -153,7 +153,7 @@ async function runImprovement(
 
     log(`Starting improvement for prompt: "${prompt.name}" (id: ${prompt.id})`);
 
-    const originalResult = await runTestsForPromptContent(
+    const originalResult = await runTests(
         prompt.content,
         testCases,
         modelRunners,
@@ -222,7 +222,7 @@ async function runImprovement(
             }
 
             try {
-                const result = await runTestsForPromptContent(
+                const result = await runTests(
                     improvement.prompt,
                     testCases,
                     modelRunners,

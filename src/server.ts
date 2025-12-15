@@ -9,10 +9,8 @@ import {
     setConfig,
     createPrompt,
     getLatestPrompts,
-    getPromptVersions,
     getPromptVersionsByGroupId,
     getPromptByIdOrFail,
-    getAllPrompts,
     deletePrompt,
     deleteAllVersionsOfPrompt,
     createTestCase,
@@ -25,7 +23,6 @@ import {
 } from "./database";
 import {
     refreshClients,
-    getConfiguredClients,
     getAllAvailableModels,
     ModelSelection,
     DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE,
@@ -34,6 +31,7 @@ import {
 import { startTestRun, getTestProgress, TestResults } from "./services/test-runner";
 import { startImprovement, getImprovementProgress } from "./services/improvement-service";
 import { getErrorMessage, getErrorStatusCode, NotFoundError, ValidationError } from "./errors";
+import { parse, ParseType } from "./utils/parse";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,19 +77,22 @@ app.post("/api/config", (req, res) => {
         } = req.body;
 
         if (openai_api_key !== undefined) setConfig("openai_api_key", openai_api_key);
-        if (bedrock_access_key_id !== undefined)
+        if (bedrock_access_key_id !== undefined) {
             setConfig("bedrock_access_key_id", bedrock_access_key_id);
-        if (bedrock_secret_access_key !== undefined)
+        }
+        if (bedrock_secret_access_key !== undefined) {
             setConfig("bedrock_secret_access_key", bedrock_secret_access_key);
-        if (bedrock_session_token !== undefined)
+        }
+        if (bedrock_session_token !== undefined) {
             setConfig("bedrock_session_token", bedrock_session_token);
-        if (bedrock_region !== undefined)
+        }
+        if (bedrock_region !== undefined) {
             setConfig("bedrock_region", bedrock_region || "ap-southeast-2");
+        }
         if (deepseek_api_key !== undefined) setConfig("deepseek_api_key", deepseek_api_key);
         if (gemini_api_key !== undefined) setConfig("gemini_api_key", gemini_api_key);
         if (groq_api_key !== undefined) setConfig("groq_api_key", groq_api_key);
         if (selected_models !== undefined) {
-            // Store selected models as JSON string
             const modelsJson = Array.isArray(selected_models)
                 ? JSON.stringify(selected_models)
                 : selected_models;
@@ -101,18 +102,6 @@ app.post("/api/config", (req, res) => {
         refreshClients();
 
         res.json({ success: true, message: "Configuration updated" });
-    } catch (error) {
-        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
-    }
-});
-
-app.get("/api/config/providers", (req, res) => {
-    try {
-        const clients = getConfiguredClients();
-        res.json({
-            providers: clients.map((c) => c.name),
-            count: clients.length,
-        });
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
@@ -150,7 +139,6 @@ app.put("/api/config/improvement-prompt", (req, res) => {
             throw new ValidationError("template cannot be empty");
         }
 
-        // Always store the template in the database
         setConfig("improvement_prompt_template", template);
 
         res.json({ success: true, message: "Improvement prompt template updated" });
@@ -162,15 +150,6 @@ app.put("/api/config/improvement-prompt", (req, res) => {
 app.get("/api/prompts", (req, res) => {
     try {
         const prompts = getLatestPrompts();
-        res.json(prompts);
-    } catch (error) {
-        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
-    }
-});
-
-app.get("/api/prompts/all", (req, res) => {
-    try {
-        const prompts = getAllPrompts();
         res.json(prompts);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -202,25 +181,13 @@ app.get("/api/prompts/:id", (req, res) => {
     }
 });
 
-// Get versions by prompt group ID (preferred)
 app.get("/api/prompts/:id/versions", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
         const prompt = getPromptByIdOrFail(id);
 
-        // Use promptGroupId if available, otherwise fall back to the prompt's own ID
         const groupId = prompt.promptGroupId ?? id;
         const versions = getPromptVersionsByGroupId(groupId);
-        res.json(versions);
-    } catch (error) {
-        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
-    }
-});
-
-// Legacy: Get versions by name (for backward compatibility)
-app.get("/api/prompts/by-name/:name/versions", (req, res) => {
-    try {
-        const versions = getPromptVersions(req.params.name);
         res.json(versions);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -230,7 +197,6 @@ app.get("/api/prompts/by-name/:name/versions", (req, res) => {
 app.delete("/api/prompts/:id", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        // Verify prompt exists before deleting
         getPromptByIdOrFail(id);
         deletePrompt(id);
         res.json({ success: true });
@@ -262,23 +228,29 @@ app.get("/api/prompts/:id/test-cases", (req, res) => {
 app.post("/api/prompts/:id/test-cases", (req, res) => {
     try {
         const promptId = parseInt(req.params.id, 10);
-        const { input, expected_output } = req.body;
+        const { input, expected_output, expected_output_type } = req.body;
 
         if (!input || !expected_output) {
             throw new ValidationError("Input and expected_output are required");
         }
 
-        try {
-            JSON.parse(expected_output);
-        } catch {
+        if (!Object.values(ParseType).includes(expected_output_type as ParseType)) {
+            throw new ValidationError("expected_output_type must be one of: string, array, object");
+        }
+
+        if (parse(expected_output, expected_output_type as ParseType) === undefined) {
             throw new ValidationError("expected_output must be valid JSON");
         }
 
-        // Get the prompt to find its promptGroupId
         const prompt = getPromptByIdOrFail(promptId);
         const promptGroupId = prompt.promptGroupId ?? promptId;
 
-        const testCase = createTestCase(promptGroupId, input, expected_output);
+        const testCase = createTestCase(
+            promptGroupId,
+            input,
+            expected_output,
+            expected_output_type
+        );
         res.json(testCase);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -288,7 +260,7 @@ app.post("/api/prompts/:id/test-cases", (req, res) => {
 app.put("/api/test-cases/:id", (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const { input, expected_output } = req.body;
+        const { input, expected_output, expected_output_type } = req.body;
 
         if (!input || !expected_output) {
             throw new ValidationError("Input and expected_output are required");
@@ -300,7 +272,14 @@ app.put("/api/test-cases/:id", (req, res) => {
             throw new ValidationError("expected_output must be valid JSON");
         }
 
-        const testCase = updateTestCase(id, input, expected_output);
+        if (!expected_output_type) {
+            throw new ValidationError("expected_output_type is required");
+        }
+        if (!Object.values(ParseType).includes(expected_output_type as ParseType)) {
+            throw new ValidationError("expected_output_type must be one of: string, array, object");
+        }
+
+        const testCase = updateTestCase(id, input, expected_output, expected_output_type);
         if (!testCase) {
             throw new NotFoundError("Test case", id);
         }
@@ -337,7 +316,6 @@ app.post("/api/test/run", async (req, res) => {
             throw new ValidationError("runsPerTest must be a number between 1 and 100");
         }
 
-        // Parse selectedModels - can be passed as array or retrieved from config
         let models: ModelSelection[] | undefined;
         if (selectedModels && Array.isArray(selectedModels) && selectedModels.length > 0) {
             models = selectedModels as ModelSelection[];
@@ -398,7 +376,6 @@ app.post("/api/improve/start", async (req, res) => {
         const iterations = maxIterations || 5;
         const runs = runsPerLlm || 1;
 
-        // Parse selectedModels - can be passed as array or retrieved from config
         let models: ModelSelection[] | undefined;
         if (selectedModels && Array.isArray(selectedModels) && selectedModels.length > 0) {
             models = selectedModels as ModelSelection[];

@@ -432,6 +432,15 @@
                                 this.</small
                             >
                         </div>
+                        <div class="form-group">
+                            <label for="expected_output_type">Expected Output Type</label>
+                            <select id="expected_output_type" name="expected_output_type">
+                                <option value="string">String</option>
+                                <option value="array" selected>Array</option>
+                                <option value="object">Object</option>
+                            </select>
+                            <small>The type of data structure expected from the LLM</small>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="secondary" onclick="closeAddTestCaseModal()">
@@ -506,6 +515,12 @@
                 try {
                     const res = await fetch(`/api/prompts/${selectedPromptId}/test-cases`);
                     testCasesData = await res.json();
+                    // Debug: log first test case to see structure
+                    if (testCasesData.length > 0) {
+                        console.log('Test case data structure:', testCasesData[0]);
+                        console.log('expectedOutputType:', testCasesData[0].expectedOutputType);
+                        console.log('expected_output_type:', testCasesData[0].expected_output_type);
+                    }
                     renderTestCases();
                 } catch (error) {
                     document.getElementById("test-cases-list").innerHTML =
@@ -523,6 +538,8 @@
 
                 container.innerHTML = testCasesData
                     .map((tc, i) => {
+                        // Handle both camelCase and snake_case property names
+                        const outputType = tc.expectedOutputType || tc.expected_output_type;
                         if (editingTestCaseId === tc.id) {
                             return `
                             <div class="test-case-item editing" data-id="${tc.id}">
@@ -535,6 +552,14 @@
                                     <div class="form-group">
                                         <label>Expected Output (JSON)</label>
                                         <textarea id="edit-output-${tc.id}">${escapeHtml(tc.expectedOutput)}</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Expected Output Type</label>
+                                        <select id="edit-output-type-${tc.id}">
+                                            <option value="string" ${(tc.expectedOutputType || tc.expected_output_type) === 'string' ? 'selected' : ''}>String</option>
+                                            <option value="array" ${(tc.expectedOutputType || tc.expected_output_type) === 'array' || (!tc.expectedOutputType && !tc.expected_output_type) ? 'selected' : ''}>Array</option>
+                                            <option value="object" ${(tc.expectedOutputType || tc.expected_output_type) === 'object' ? 'selected' : ''}>Object</option>
+                                        </select>
                                     </div>
                                     <div class="button-group">
                                         <button class="success" onclick="saveTestCase(${tc.id})">Save</button>
@@ -555,7 +580,7 @@
                             </div>
                             <div class="label">Input:</div>
                             <div class="json-preview">${escapeHtml(tc.input)}</div>
-                            <div class="label">Expected Output:</div>
+                            <div class="label">Expected Output (${formatOutputType(outputType)}):</div>
                             <div class="json-preview">${formatJSON(tc.expectedOutput)}</div>
                         </div>
                     `;
@@ -576,6 +601,7 @@
             async function saveTestCase(id) {
                 const input = document.getElementById(`edit-input-${id}`).value.trim();
                 const expected_output = document.getElementById(`edit-output-${id}`).value.trim();
+                const expected_output_type = document.getElementById(`edit-output-type-${id}`).value;
                 try {
                     JSON.parse(expected_output);
                 } catch {
@@ -587,7 +613,7 @@
                     const res = await fetch(`/api/test-cases/${id}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ input, expected_output }),
+                        body: JSON.stringify({ input, expected_output, expected_output_type }),
                     });
                     if (res.ok) {
                         AppUtils.showAppMessage("Test case updated!", "success");
@@ -617,6 +643,17 @@
                 } catch {
                     return escapeHtml(json);
                 }
+            }
+
+            function formatOutputType(type) {
+                if (!type || typeof type !== 'string') return 'Array';
+                // Handle case where type might be the literal string "Expected_output_type" or similar
+                const normalized = type.toLowerCase();
+                if (normalized === 'string' || normalized === 'array' || normalized === 'object') {
+                    return type.charAt(0).toUpperCase() + type.slice(1);
+                }
+                // If it's not a valid type, return default
+                return 'Array';
             }
 
             async function deleteTestCase(id) {
@@ -682,6 +719,7 @@
 
                 const input = document.getElementById("input").value.trim();
                 const expected_output = document.getElementById("expected_output").value.trim();
+                const expected_output_type = document.getElementById("expected_output_type").value;
                 try {
                     JSON.parse(expected_output);
                 } catch {
@@ -693,7 +731,7 @@
                     const res = await fetch(`/api/prompts/${selectedPromptId}/test-cases`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ input, expected_output }),
+                        body: JSON.stringify({ input, expected_output, expected_output_type }),
                     });
                     if (res.ok) {
                         AppUtils.showAppMessage("Test case added!", "success");

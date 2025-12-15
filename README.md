@@ -93,15 +93,16 @@ A web application for testing agentic server-side prompts against multiple LLMs 
 
 - `GET /api/config` - Get all config (API keys masked)
 - `POST /api/config` - Update API keys
-- `GET /api/config/providers` - List configured LLM providers
+- `GET /api/config/improvement-prompt` - Get improvement prompt template
+- `PUT /api/config/improvement-prompt` - Update improvement prompt template
+- `GET /api/models` - Get all available models from configured providers
 
 ### Prompts
 
 - `GET /api/prompts` - Get latest version of each prompt
-- `GET /api/prompts/all` - Get all prompt versions
 - `POST /api/prompts` - Create a new prompt
 - `GET /api/prompts/:id` - Get a specific prompt by ID
-- `GET /api/prompts/:name/versions` - Get version history by name
+- `GET /api/prompts/:id/versions` - Get version history for a prompt by ID
 - `DELETE /api/prompts/:id` - Delete a specific prompt version
 - `DELETE /api/prompts/:id/all-versions` - Delete all versions of a prompt (by ID)
 

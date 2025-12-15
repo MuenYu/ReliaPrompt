@@ -9,7 +9,8 @@ import {
     Prompt,
 } from "../database";
 import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
-import { compareJSON } from "../utils/json-comparison";
+import { compare } from "../utils/compare";
+import { parse, ParseType } from "../utils/parse";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 // Represents a model to run tests against
@@ -87,7 +88,7 @@ async function handleTestRun(
     runsPerTest: number
 ): Promise<void> {
     try {
-        await runTests(jobId, prompt, testCases, modelRunners, runsPerTest);
+        await runTests(prompt, testCases, modelRunners, runsPerTest, jobId);
     } catch (error) {
         const progress = activeJobs.get(jobId);
         if (progress) {
@@ -149,9 +150,10 @@ export async function startTestRun(
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
     // Get model runners based on selection or saved settings
-    const modelRunners = selectedModels && selectedModels.length > 0
-        ? getModelRunnersFromSelections(selectedModels)
-        : getSavedModelRunners();
+    const modelRunners =
+        selectedModels && selectedModels.length > 0
+            ? getModelRunnersFromSelections(selectedModels)
+            : getSavedModelRunners();
 
     if (modelRunners.length === 0) {
         throw new ConfigurationError(
@@ -178,19 +180,29 @@ export async function startTestRun(
     return jobId;
 }
 
-async function runTests(
-    jobId: string,
-    prompt: Prompt,
+export async function runTests(
+    prompt: Prompt | string,
     testCases: TestCase[],
     modelRunners: ModelRunner[],
-    runsPerTest: number = DEFAULT_RUNS_PER_TEST
-): Promise<void> {
-    const progress = activeJobs.get(jobId)!;
-    progress.status = "running";
-    updateTestJob(jobId, { status: "running" });
+    runsPerTest: number = DEFAULT_RUNS_PER_TEST,
+    jobId?: string
+): Promise<{ score: number; results: LLMTestResult[] }> {
+    // Extract prompt content and ID
+    const promptContent = typeof prompt === "string" ? prompt : prompt.content;
+    const promptId = typeof prompt === "string" ? undefined : prompt.id;
+
+    // Initialize progress tracking if jobId is provided
+    if (jobId) {
+        const progress = activeJobs.get(jobId);
+        if (progress) {
+            progress.status = "running";
+        }
+        updateTestJob(jobId, { status: "running" });
+    }
 
     const llmResults: LLMTestResult[] = [];
     let completedTests = 0;
+    const totalTests = testCases.length * modelRunners.length * runsPerTest;
 
     const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
@@ -206,11 +218,18 @@ async function runTests(
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
                     const startTime = Date.now();
-                    const actualOutput = await runner.client.complete(prompt.content, testCase.input, runner.modelId);
+                    const actualOutput = await runner.client.complete(
+                        promptContent,
+                        testCase.input,
+                        runner.modelId
+                    );
                     const durationMs = Date.now() - startTime;
-                    const comparison = compareJSON(testCase.expectedOutput, actualOutput);
+                    const expectedOutputType = testCase.expectedOutputType as ParseType;
+                    const expectedParsed = parse(testCase.expectedOutput, expectedOutputType);
+                    const actualParsed = parse(actualOutput, expectedOutputType);
+                    const comparison = compare(expectedParsed, actualParsed, expectedOutputType);
 
-                    const isCorrect = comparison.isEqual;
+                    const isCorrect = comparison.score === 1;
                     if (isCorrect) {
                         correctRuns++;
                         llmCorrectCount++;
@@ -226,25 +245,26 @@ async function runTests(
                         score: comparison.score,
                         expectedFound: comparison.expectedFound,
                         expectedTotal: comparison.expectedTotal,
-                        unexpectedCount: comparison.unexpectedCount,
-                        error: comparison.error,
+                        unexpectedCount: comparison.unexpectedFound,
                         durationMs,
                     });
 
-                    createTestResult(
-                        jobId,
-                        testCase.id,
-                        runner.displayName,
-                        runNumber,
-                        actualOutput,
-                        isCorrect,
-                        comparison.score,
-                        comparison.expectedFound,
-                        comparison.expectedTotal,
-                        comparison.unexpectedCount,
-                        comparison.error,
-                        durationMs
-                    );
+                    // Persist to database if jobId is provided
+                    if (jobId) {
+                        createTestResult(
+                            jobId,
+                            testCase.id,
+                            runner.displayName,
+                            runNumber,
+                            actualOutput,
+                            isCorrect,
+                            comparison.score,
+                            comparison.expectedFound,
+                            comparison.expectedTotal,
+                            comparison.unexpectedFound,
+                            durationMs
+                        );
+                    }
                 } catch (error) {
                     llmTotalRuns++;
                     const errorMessage = getErrorMessage(error);
@@ -259,146 +279,32 @@ async function runTests(
                         error: errorMessage,
                     });
 
-                    createTestResult(
-                        jobId,
-                        testCase.id,
-                        runner.displayName,
-                        runNumber,
-                        null,
-                        false,
-                        0,
-                        0,
-                        0,
-                        0,
-                        errorMessage
-                    );
-                }
-
-                completedTests++;
-                progress.completedTests = completedTests;
-                progress.progress = Math.round((completedTests / progress.totalTests) * 100);
-                updateTestJob(jobId, { completedTests: completedTests });
-            }
-
-            const averageScore = runs.length > 0 ? Math.round(totalScore / runs.length) : 0;
-
-            return {
-                testCaseId: testCase.id,
-                input: testCase.input,
-                expectedOutput: testCase.expectedOutput,
-                runs,
-                correctRuns,
-                averageScore,
-            } as TestCaseResult;
-        });
-
-        const results = await Promise.all(testCasePromises);
-        testCaseResults.push(...results);
-
-        // Calculate duration stats from all runs
-        const allDurations = testCaseResults.flatMap(tc => 
-            tc.runs.map(r => r.durationMs).filter((d): d is number => d !== undefined)
-        );
-        const durationStats = allDurations.length > 0 ? {
-            minMs: Math.min(...allDurations),
-            maxMs: Math.max(...allDurations),
-            avgMs: Math.round(allDurations.reduce((a, b) => a + b, 0) / allDurations.length),
-        } : undefined;
-
-        // Calculate average score across all runs
-        const averageScore = llmTotalRuns > 0 ? Math.round(llmTotalScore / llmTotalRuns) : 0;
-
-        return {
-            llmName: runner.displayName,
-            correctCount: llmCorrectCount,
-            totalRuns: llmTotalRuns,
-            score: averageScore,
-            testCaseResults,
-            durationStats,
-        } as LLMTestResult;
-    });
-
-    const results = await Promise.all(llmPromises);
-    llmResults.push(...results);
-
-    // Calculate overall score as average of all LLM scores
-    const totalScore = llmResults.reduce((sum, r) => sum + r.score, 0);
-    const overallScore = llmResults.length > 0 ? Math.round(totalScore / llmResults.length) : 0;
-
-    const testResults: TestResults = {
-        promptId: prompt.id,
-        promptContent: prompt.content,
-        totalTestCases: testCases.length,
-        llmResults,
-        overallScore,
-    };
-
-    progress.status = "completed";
-    progress.results = testResults;
-    updateTestJob(jobId, {
-        status: "completed",
-        results: JSON.stringify(testResults),
-    });
-}
-
-export async function runTestsForPromptContent(
-    promptContent: string,
-    testCases: TestCase[],
-    modelRunners: ModelRunner[],
-    runsPerTest: number = DEFAULT_RUNS_PER_TEST
-): Promise<{ score: number; results: LLMTestResult[] }> {
-    const llmResults: LLMTestResult[] = [];
-
-    const llmPromises = modelRunners.map(async (runner) => {
-        const testCaseResults: TestCaseResult[] = [];
-        let llmTotalScore = 0;
-        let llmCorrectCount = 0;
-        let llmTotalRuns = 0;
-
-        const testCasePromises = testCases.map(async (testCase) => {
-            const runs: RunResult[] = [];
-            let correctRuns = 0;
-            let totalScore = 0;
-
-            for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
-                try {
-                    const startTime = Date.now();
-                    const actualOutput = await runner.client.complete(promptContent, testCase.input, runner.modelId);
-                    const durationMs = Date.now() - startTime;
-                    const comparison = compareJSON(testCase.expectedOutput, actualOutput);
-
-                    const isCorrect = comparison.isEqual;
-                    if (isCorrect) {
-                        correctRuns++;
-                        llmCorrectCount++;
+                    // Persist to database if jobId is provided
+                    if (jobId) {
+                        createTestResult(
+                            jobId,
+                            testCase.id,
+                            runner.displayName,
+                            runNumber,
+                            null,
+                            false,
+                            0,
+                            0,
+                            0,
+                            0
+                        );
                     }
-                    totalScore += comparison.score;
-                    llmTotalScore += comparison.score;
-                    llmTotalRuns++;
+                }
 
-                    runs.push({
-                        runNumber,
-                        actualOutput,
-                        isCorrect,
-                        score: comparison.score,
-                        expectedFound: comparison.expectedFound,
-                        expectedTotal: comparison.expectedTotal,
-                        unexpectedCount: comparison.unexpectedCount,
-                        error: comparison.error,
-                        durationMs,
-                    });
-                } catch (error) {
-                    llmTotalRuns++;
-                    runs.push({
-                        runNumber,
-                        actualOutput: null,
-                        isCorrect: false,
-                        score: 0,
-                        expectedFound: 0,
-                        expectedTotal: 0,
-                        unexpectedCount: 0,
-                        error: getErrorMessage(error),
-                    });
+                // Update progress if jobId is provided
+                if (jobId) {
+                    completedTests++;
+                    const progress = activeJobs.get(jobId);
+                    if (progress) {
+                        progress.completedTests = completedTests;
+                        progress.progress = Math.round((completedTests / totalTests) * 100);
+                    }
+                    updateTestJob(jobId, { completedTests: completedTests });
                 }
             }
 
@@ -418,14 +324,19 @@ export async function runTestsForPromptContent(
         testCaseResults.push(...results);
 
         // Calculate duration stats from all runs
-        const allDurations = testCaseResults.flatMap(tc => 
-            tc.runs.map(r => r.durationMs).filter((d): d is number => d !== undefined)
+        const allDurations = testCaseResults.flatMap((tc) =>
+            tc.runs.map((r) => r.durationMs).filter((d): d is number => d !== undefined)
         );
-        const durationStats = allDurations.length > 0 ? {
-            minMs: Math.min(...allDurations),
-            maxMs: Math.max(...allDurations),
-            avgMs: Math.round(allDurations.reduce((a, b) => a + b, 0) / allDurations.length),
-        } : undefined;
+        const durationStats =
+            allDurations.length > 0
+                ? {
+                      minMs: Math.min(...allDurations),
+                      maxMs: Math.max(...allDurations),
+                      avgMs: Math.round(
+                          allDurations.reduce((a, b) => a + b, 0) / allDurations.length
+                      ),
+                  }
+                : undefined;
 
         // Calculate average score across all runs
         const averageScore = llmTotalRuns > 0 ? Math.round(llmTotalScore / llmTotalRuns) : 0;
@@ -447,6 +358,27 @@ export async function runTestsForPromptContent(
     const totalScore = llmResults.reduce((sum, r) => sum + r.score, 0);
     const score = llmResults.length > 0 ? Math.round(totalScore / llmResults.length) : 0;
 
+    // Update job status and results if jobId is provided
+    if (jobId) {
+        const testResults: TestResults = {
+            promptId: promptId ?? 0,
+            promptContent: promptContent,
+            totalTestCases: testCases.length,
+            llmResults,
+            overallScore: score,
+        };
+
+        const progress = activeJobs.get(jobId);
+        if (progress) {
+            progress.status = "completed";
+            progress.results = testResults;
+        }
+        updateTestJob(jobId, {
+            status: "completed",
+            results: JSON.stringify(testResults),
+        });
+    }
+
     return { score, results: llmResults };
 }
 
@@ -460,7 +392,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         expectedFound: number;
         expectedTotal: number;
         unexpectedCount: number;
-        error?: string;
     }> = [];
 
     const testCaseMap = new Map<
@@ -475,7 +406,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 expectedFound: number;
                 expectedTotal: number;
                 unexpectedCount: number;
-                error?: string;
             }>;
         }
     >();
@@ -499,7 +429,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                     expectedFound: run.expectedFound,
                     expectedTotal: run.expectedTotal,
                     unexpectedCount: run.unexpectedCount,
-                    error: run.error,
                 });
             }
         }
@@ -520,7 +449,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 expectedFound: representative.expectedFound,
                 expectedTotal: representative.expectedTotal,
                 unexpectedCount: representative.unexpectedCount,
-                error: representative.error,
             });
         } else if (anyCorrect) {
             const correct = tc.outputs.find((o) => o.isCorrect)!;
