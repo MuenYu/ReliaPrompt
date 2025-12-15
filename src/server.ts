@@ -73,6 +73,7 @@ app.post("/api/config", (req, res) => {
             deepseek_api_key,
             gemini_api_key,
             groq_api_key,
+            openrouter_api_key,
             selected_models,
         } = req.body;
 
@@ -92,6 +93,7 @@ app.post("/api/config", (req, res) => {
         if (deepseek_api_key !== undefined) setConfig("deepseek_api_key", deepseek_api_key);
         if (gemini_api_key !== undefined) setConfig("gemini_api_key", gemini_api_key);
         if (groq_api_key !== undefined) setConfig("groq_api_key", groq_api_key);
+        if (openrouter_api_key !== undefined) setConfig("openrouter_api_key", openrouter_api_key);
         if (selected_models !== undefined) {
             const modelsJson = Array.isArray(selected_models)
                 ? JSON.stringify(selected_models)
@@ -367,7 +369,7 @@ app.get("/api/prompts/:id/test-jobs", (req, res) => {
 
 app.post("/api/improve/start", async (req, res) => {
     try {
-        const { promptId, maxIterations, runsPerLlm, selectedModels } = req.body;
+        const { promptId, maxIterations, runsPerLlm, improvementModel, benchmarkModels, selectedModels } = req.body;
 
         if (!promptId) {
             throw new ValidationError("promptId is required");
@@ -376,12 +378,33 @@ app.post("/api/improve/start", async (req, res) => {
         const iterations = maxIterations || 5;
         const runs = runsPerLlm || 1;
 
-        let models: ModelSelection[] | undefined;
-        if (selectedModels && Array.isArray(selectedModels) && selectedModels.length > 0) {
-            models = selectedModels as ModelSelection[];
+        // Support new API with separate improvement and benchmark models
+        let improvement: ModelSelection | undefined;
+        let benchmarks: ModelSelection[] | undefined;
+
+        if (improvementModel && benchmarkModels) {
+            // New API: separate improvement and benchmark models
+            improvement = improvementModel as ModelSelection;
+            if (Array.isArray(benchmarkModels) && benchmarkModels.length > 0) {
+                benchmarks = benchmarkModels as ModelSelection[];
+            } else {
+                throw new ValidationError("At least one benchmark model is required");
+            }
+        } else if (selectedModels && Array.isArray(selectedModels) && selectedModels.length > 0) {
+            // Backward compatibility: use first model as improvement, all as benchmarks
+            const models = selectedModels as ModelSelection[];
+            improvement = models[0];
+            benchmarks = models;
         }
 
-        const jobId = await startImprovement(promptId, iterations, runs, models);
+        if (!improvement) {
+            throw new ValidationError("improvementModel is required");
+        }
+        if (!benchmarks || benchmarks.length === 0) {
+            throw new ValidationError("At least one benchmark model is required");
+        }
+
+        const jobId = await startImprovement(promptId, iterations, runs, improvement, benchmarks);
         res.json({ jobId });
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });

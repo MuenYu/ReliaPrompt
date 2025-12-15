@@ -780,6 +780,7 @@ async function loadConfigStatus() {
         updateConfigBadge("deepseek-status", !!config.deepseek_api_key);
         updateConfigBadge("gemini-status", !!config.gemini_api_key);
         updateConfigBadge("groq-status", !!config.groq_api_key);
+        updateConfigBadge("openrouter-status", !!config.openrouter_api_key);
 
         // Populate input fields with values from the database
         const fields = [
@@ -791,6 +792,7 @@ async function loadConfigStatus() {
             "bedrock_region",
             "gemini_api_key",
             "groq_api_key",
+            "openrouter_api_key",
         ];
 
         for (const field of fields) {
@@ -821,6 +823,7 @@ async function loadConfigStatus() {
         renderModelCheckboxes("deepseek-models", "Deepseek");
         renderModelCheckboxes("gemini-models", "Gemini");
         renderModelCheckboxes("groq-models", "Groq");
+        renderModelCheckboxes("openrouter-models", "OpenRouter");
     } catch (error) {
         showAppMessage("Error loading configuration", "error");
     }
@@ -1124,6 +1127,16 @@ function getConfigModalHtml() {
                             </h3>
                             <div class="form-group">
                                 <input type="text" id="groq_api_key" name="groq_api_key" placeholder="API Key (gsk_...)" />
+                            </div>
+                        </div>
+
+                        <div class="provider-section">
+                            <h3>
+                                OpenRouter
+                                <span id="openrouter-status" class="status-badge not-configured">Not configured</span>
+                            </h3>
+                            <div class="form-group">
+                                <input type="text" id="openrouter_api_key" name="openrouter_api_key" placeholder="API Key (sk-or-v1-...)" />
                             </div>
                         </div>
                     </div>

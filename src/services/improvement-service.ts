@@ -40,12 +40,13 @@ async function handleImprovementRun(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    modelRunners: ModelRunner[],
+    improvementRunner: ModelRunner,
+    benchmarkRunners: ModelRunner[],
     maxIterations: number,
     runsPerLlm: number
 ): Promise<void> {
     try {
-        await runImprovement(jobId, prompt, testCases, modelRunners, maxIterations, runsPerLlm);
+        await runImprovement(jobId, prompt, testCases, improvementRunner, benchmarkRunners, maxIterations, runsPerLlm);
     } catch (error) {
         const progress = activeImprovementJobs.get(jobId);
         if (progress) {
@@ -76,6 +77,24 @@ function getModelRunnersFromSelections(selectedModels: ModelSelection[]): ModelR
     return runners;
 }
 
+function getModelRunnerFromSelection(selection: ModelSelection): ModelRunner {
+    const clients = getConfiguredClients();
+    const clientMap = new Map(clients.map((c) => [c.name, c]));
+    const client = clientMap.get(selection.provider);
+    
+    if (!client) {
+        throw new ConfigurationError(
+            `Model ${selection.provider}/${selection.modelId} is not available. Please check your configuration.`
+        );
+    }
+
+    return {
+        client,
+        modelId: selection.modelId,
+        displayName: `${selection.provider} (${selection.modelId})`,
+    };
+}
+
 function getSavedModelRunners(): ModelRunner[] {
     const savedModelsJson = getConfig("selected_models");
     if (savedModelsJson) {
@@ -94,7 +113,8 @@ export async function startImprovement(
     promptId: number,
     maxIterations: number,
     runsPerLlm: number = 1,
-    selectedModels?: ModelSelection[]
+    improvementModel: ModelSelection,
+    benchmarkModels: ModelSelection[]
 ): Promise<string> {
     // Use OrFail variant for cleaner code - throws NotFoundError if prompt doesn't exist
     const prompt = getPromptByIdOrFail(promptId);
@@ -103,14 +123,14 @@ export async function startImprovement(
     // Use requireEntity for explicit assertion with clear error message
     requireEntity(testCases.length > 0 ? testCases : null, `Test cases for prompt ${promptId}`);
 
-    // Get model runners based on selection or saved settings
-    const modelRunners =
-        selectedModels && selectedModels.length > 0
-            ? getModelRunnersFromSelections(selectedModels)
-            : getSavedModelRunners();
-    if (modelRunners.length === 0) {
+    // Get improvement runner (single model)
+    const improvementRunner = getModelRunnerFromSelection(improvementModel);
+
+    // Get benchmark runners (all models for testing)
+    const benchmarkRunners = getModelRunnersFromSelections(benchmarkModels);
+    if (benchmarkRunners.length === 0) {
         throw new ConfigurationError(
-            "No LLM models selected. Please select at least one model in settings."
+            "No benchmark models selected. Please select at least one model for benchmarking."
         );
     }
 
@@ -129,7 +149,7 @@ export async function startImprovement(
     };
     activeImprovementJobs.set(jobId, progress);
 
-    handleImprovementRun(jobId, prompt, testCases, modelRunners, maxIterations, runsPerLlm);
+    handleImprovementRun(jobId, prompt, testCases, improvementRunner, benchmarkRunners, maxIterations, runsPerLlm);
 
     return jobId;
 }
@@ -138,7 +158,8 @@ async function runImprovement(
     jobId: string,
     prompt: Prompt,
     testCases: TestCase[],
-    modelRunners: ModelRunner[],
+    improvementRunner: ModelRunner,
+    benchmarkRunners: ModelRunner[],
     maxIterations: number,
     runsPerLlm: number = 1
 ): Promise<void> {
@@ -152,11 +173,13 @@ async function runImprovement(
     };
 
     log(`Starting improvement for prompt: "${prompt.name}" (id: ${prompt.id})`);
+    log(`Improvement model: ${improvementRunner.displayName}`);
+    log(`Benchmark models: ${benchmarkRunners.map(r => r.displayName).join(", ")}`);
 
     const originalResult = await runTests(
         prompt.content,
         testCases,
-        modelRunners,
+        benchmarkRunners,
         runsPerLlm
     );
     const originalScore = originalResult.score;
@@ -165,7 +188,7 @@ async function runImprovement(
     progress.bestScore = originalScore;
     progress.bestPromptContent = prompt.content;
 
-    log(`Original prompt score: ${(originalScore * 100).toFixed(1)}%`);
+    log(`Original prompt score: ${(originalScore * 100).toFixed(1)}% (averaged across ${benchmarkRunners.length} benchmark model(s))`);
     updateImprovementJob(jobId, {
         bestScore: originalScore,
         bestPromptContent: prompt.content,
@@ -188,84 +211,75 @@ async function runImprovement(
         log(`\n--- Iteration ${iteration}/${maxIterations} ---`);
 
         const testSummary = getTestResultSummary(currentTestResults);
-        const improvementPromises = modelRunners.map(async (runner) => {
-            try {
-                const improved = await runner.client.improvePrompt(
-                    currentBestPrompt,
-                    testSummary,
-                    runner.modelId
-                );
-                return { llm: runner.displayName, prompt: improved, error: null };
-            } catch (error) {
-                return { llm: runner.displayName, prompt: null, error: getErrorMessage(error) };
-            }
-        });
-
-        const improvements = await Promise.all(improvementPromises);
-
-        const improvementResults: Array<{
-            llm: string;
-            prompt: string;
-            score: number;
-            results: LLMTestResult[];
-        }> = [];
-
-        for (const improvement of improvements) {
-            if (improvement.error || !improvement.prompt) {
-                log(`${improvement.llm}: Failed to generate improvement - ${improvement.error}`);
-                continue;
-            }
-
-            if (improvement.prompt.trim() === currentBestPrompt.trim()) {
-                log(`${improvement.llm}: No changes proposed`);
-                continue;
-            }
-
-            try {
-                const result = await runTests(
-                    improvement.prompt,
-                    testCases,
-                    modelRunners,
-                    runsPerLlm
-                );
-                log(`${improvement.llm}: Score = ${(result.score * 100).toFixed(1)}% (was ${(currentBestScore * 100).toFixed(1)}%)`);
-
-                improvementResults.push({
-                    llm: improvement.llm,
-                    prompt: improvement.prompt,
-                    score: result.score,
-                    results: result.results,
-                });
-            } catch (error) {
-                log(`${improvement.llm}: Testing failed - ${getErrorMessage(error)}`);
-            }
+        
+        // Use only the improvement runner to generate improvements
+        let improvedPrompt: string | null = null;
+        let improvementError: string | null = null;
+        
+        try {
+            log(`Requesting improvement from ${improvementRunner.displayName}...`);
+            improvedPrompt = await improvementRunner.client.improvePrompt(
+                currentBestPrompt,
+                testSummary,
+                improvementRunner.modelId
+            );
+        } catch (error) {
+            improvementError = getErrorMessage(error);
+            log(`${improvementRunner.displayName}: Failed to generate improvement - ${improvementError}`);
         }
 
-        const bestImprovement = improvementResults
-            .filter((r) => r.score > currentBestScore)
-            .sort((a, b) => b.score - a.score)[0];
-
-        if (bestImprovement) {
-            log(
-                `Best improvement this iteration: ${bestImprovement.llm} with score ${(bestImprovement.score * 100).toFixed(1)}%`
-            );
-            currentBestPrompt = bestImprovement.prompt;
-            currentBestScore = bestImprovement.score;
-            currentTestResults = bestImprovement.results;
-
-            progress.bestScore = currentBestScore;
-            progress.bestPromptContent = currentBestPrompt;
-            updateImprovementJob(jobId, {
-                bestScore: currentBestScore,
-                bestPromptContent: currentBestPrompt,
-            });
-
-            if (currentBestScore === 1) {
-                log("Perfect score achieved!");
-                break;
+        if (improvementError || !improvedPrompt) {
+            log("Skipping this iteration due to improvement generation failure");
+            if (iteration < maxIterations) {
+                log("Will try again with fresh perspective...");
             }
-        } else {
-            log("No improvement found this iteration");
+            continue;
+        }
+
+        if (improvedPrompt.trim() === currentBestPrompt.trim()) {
+            log(`${improvementRunner.displayName}: No changes proposed`);
+            if (iteration < maxIterations) {
+                log("Will try again with fresh perspective...");
+            }
+            continue;
+        }
+
+        // Test the improved prompt against all benchmark models
+        try {
+            log(`Testing improved prompt against ${benchmarkRunners.length} benchmark model(s)...`);
+            const result = await runTests(
+                improvedPrompt,
+                testCases,
+                benchmarkRunners,
+                runsPerLlm
+            );
+            log(`Improved prompt score: ${(result.score * 100).toFixed(1)}% (was ${(currentBestScore * 100).toFixed(1)}%)`);
+
+            if (result.score > currentBestScore) {
+                log(`✓ Improvement found! Score increased by ${((result.score - currentBestScore) * 100).toFixed(1)}%`);
+                currentBestPrompt = improvedPrompt;
+                currentBestScore = result.score;
+                currentTestResults = result.results;
+
+                progress.bestScore = currentBestScore;
+                progress.bestPromptContent = currentBestPrompt;
+                updateImprovementJob(jobId, {
+                    bestScore: currentBestScore,
+                    bestPromptContent: currentBestPrompt,
+                });
+
+                if (currentBestScore === 1) {
+                    log("Perfect score achieved!");
+                    break;
+                }
+            } else {
+                log(`✗ No improvement (score did not increase)`);
+                if (iteration < maxIterations) {
+                    log("Will try again with fresh perspective...");
+                }
+            }
+        } catch (error) {
+            log(`Testing failed - ${getErrorMessage(error)}`);
             if (iteration < maxIterations) {
                 log("Will try again with fresh perspective...");
             }

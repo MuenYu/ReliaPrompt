@@ -205,14 +205,34 @@
 
                             <div class="model-selection-section" style="margin-bottom: 16px">
                                 <label style="display: block; margin-bottom: 8px; font-weight: 500">
-                                    Models to use:
+                                    Improvement Model:
                                     <span
-                                        id="selected-models-count"
+                                        id="improvement-model-selected"
+                                        style="font-weight: normal; color: var(--color-text-muted)"
+                                        >(none selected)</span
+                                    >
+                                </label>
+                                <p style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 8px;">
+                                    Select one model to generate prompt improvements
+                                </p>
+                                <div id="improvement-model-selection" class="model-selection-container">
+                                    <div class="no-models">Loading models...</div>
+                                </div>
+                            </div>
+
+                            <div class="model-selection-section" style="margin-bottom: 16px">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500">
+                                    Benchmark Models:
+                                    <span
+                                        id="benchmark-models-count"
                                         style="font-weight: normal; color: var(--color-text-muted)"
                                         >(0 selected)</span
                                     >
                                 </label>
-                                <div id="improve-models-selection" class="model-selection-container">
+                                <p style="color: var(--color-text-muted); font-size: 0.85rem; margin-bottom: 8px;">
+                                    Select one or more models to test the improved prompts against
+                                </p>
+                                <div id="benchmark-models-selection" class="model-selection-container">
                                     <div class="no-models">Loading models...</div>
                                 </div>
                             </div>
@@ -379,6 +399,23 @@
                                 />
                             </div>
                         </div>
+
+                        <div class="provider-section">
+                            <h3>
+                                OpenRouter
+                                <span id="openrouter-status" class="status-badge not-configured"
+                                    >Not configured</span
+                                >
+                            </h3>
+                            <div class="form-group">
+                                <input
+                                    type="text"
+                                    id="openrouter_api_key"
+                                    name="openrouter_api_key"
+                                    placeholder="API Key (sk-or-v1-...)"
+                                />
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="secondary" onclick="closeConfigModal()">
@@ -526,6 +563,8 @@
             let selectedPromptId = null;
             let selectedPromptName = null;
             let pollInterval = null;
+            let selectedImprovementModel = null;
+            let selectedBenchmarkModels = [];
 
             // Listen for prompt selection from sidebar
             window.addEventListener("promptSelected", (e) => {
@@ -535,9 +574,9 @@
                 loadTestCaseCount();
             });
 
-            // Listen for model selection changes
+            // Listen for model selection changes (for benchmark models)
             window.addEventListener("modelsSelectionChanged", (e) => {
-                updateSelectedModelsCount();
+                updateBenchmarkModelsCount();
                 updateStartButtonState();
             });
 
@@ -567,14 +606,166 @@
             async function loadImproveModels() {
                 await AppUtils.loadAvailableModels();
                 await AppUtils.loadSelectedModels();
-                AppUtils.renderModelCheckboxes("improve-models-selection");
-                updateSelectedModelsCount();
+                
+                // Initialize benchmark models from saved selection if empty
+                if (selectedBenchmarkModels.length === 0) {
+                    const globalModels = AppUtils.getSelectedModels();
+                    selectedBenchmarkModels = globalModels.map(m => ({
+                        provider: m.provider,
+                        modelId: m.modelId
+                    }));
+                }
+                
+                // Render improvement model selection (radio buttons)
+                renderImprovementModelRadios();
+                
+                // Render benchmark models selection (checkboxes)
+                renderBenchmarkModelCheckboxes();
+                
+                updateImprovementModelStatus();
+                updateBenchmarkModelsCount();
                 updateStartButtonState();
             }
 
-            function updateSelectedModelsCount() {
-                const count = AppUtils.getSelectedModelsCount();
-                document.getElementById("selected-models-count").textContent =
+            function renderImprovementModelRadios() {
+                const container = document.getElementById("improvement-model-selection");
+                if (!container) return;
+
+                const availableModels = AppUtils.getAvailableModels();
+                if (availableModels.length === 0) {
+                    container.innerHTML = '<div class="no-models">No models available. Configure API keys first.</div>';
+                    return;
+                }
+
+                // Group by provider
+                const grouped = {};
+                for (const model of availableModels) {
+                    if (!grouped[model.provider]) {
+                        grouped[model.provider] = [];
+                    }
+                    grouped[model.provider].push(model);
+                }
+
+                let html = "";
+                for (const [provider, models] of Object.entries(grouped)) {
+                    html += `<div class="model-provider-group"><h4>${escapeHtml(provider)}</h4>`;
+                    html += '<div class="model-list">';
+                    for (const model of models) {
+                        const isChecked = selectedImprovementModel && 
+                            selectedImprovementModel.provider === model.provider && 
+                            selectedImprovementModel.modelId === model.id;
+                        html += `
+                            <label class="model-checkbox">
+                                <input type="radio" 
+                                       name="improvement-model"
+                                       data-provider="${escapeHtml(model.provider)}" 
+                                       data-model-id="${escapeHtml(model.id)}"
+                                       ${isChecked ? "checked" : ""}>
+                                <span class="model-name">${escapeHtml(model.name)}</span>
+                            </label>
+                        `;
+                    }
+                    html += "</div></div>";
+                }
+
+                container.innerHTML = html;
+
+                // Add event listeners
+                container.querySelectorAll('input[type="radio"]').forEach((radio) => {
+                    radio.addEventListener("change", () => {
+                        if (radio.checked) {
+                            selectedImprovementModel = {
+                                provider: radio.dataset.provider,
+                                modelId: radio.dataset.modelId
+                            };
+                            updateImprovementModelStatus();
+                            updateStartButtonState();
+                        }
+                    });
+                });
+            }
+
+            function renderBenchmarkModelCheckboxes() {
+                const container = document.getElementById("benchmark-models-selection");
+                if (!container) return;
+
+                const availableModels = AppUtils.getAvailableModels();
+                if (availableModels.length === 0) {
+                    container.innerHTML = '<div class="no-models">No models available. Configure API keys first.</div>';
+                    return;
+                }
+
+                // Group by provider
+                const grouped = {};
+                for (const model of availableModels) {
+                    if (!grouped[model.provider]) {
+                        grouped[model.provider] = [];
+                    }
+                    grouped[model.provider].push(model);
+                }
+
+                let html = "";
+                for (const [provider, models] of Object.entries(grouped)) {
+                    html += `<div class="model-provider-group"><h4>${escapeHtml(provider)}</h4>`;
+                    html += '<div class="model-list">';
+                    for (const model of models) {
+                        const isChecked = selectedBenchmarkModels.some(
+                            m => m.provider === model.provider && m.modelId === model.id
+                        );
+                        html += `
+                            <label class="model-checkbox">
+                                <input type="checkbox" 
+                                       data-provider="${escapeHtml(model.provider)}" 
+                                       data-model-id="${escapeHtml(model.id)}"
+                                       ${isChecked ? "checked" : ""}>
+                                <span class="model-name">${escapeHtml(model.name)}</span>
+                            </label>
+                        `;
+                    }
+                    html += "</div></div>";
+                }
+
+                container.innerHTML = html;
+
+                // Add event listeners
+                container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+                    checkbox.addEventListener("change", () => {
+                        const provider = checkbox.dataset.provider;
+                        const modelId = checkbox.dataset.modelId;
+                        const model = { provider, modelId };
+                        
+                        if (checkbox.checked) {
+                            if (!selectedBenchmarkModels.some(m => m.provider === provider && m.modelId === modelId)) {
+                                selectedBenchmarkModels.push(model);
+                            }
+                        } else {
+                            selectedBenchmarkModels = selectedBenchmarkModels.filter(
+                                m => !(m.provider === provider && m.modelId === modelId)
+                            );
+                        }
+                        updateBenchmarkModelsCount();
+                        updateStartButtonState();
+                    });
+                });
+            }
+
+            function updateImprovementModelStatus() {
+                const statusEl = document.getElementById("improvement-model-selected");
+                if (selectedImprovementModel) {
+                    const availableModels = AppUtils.getAvailableModels();
+                    const model = availableModels.find(
+                        m => m.provider === selectedImprovementModel.provider && 
+                        m.id === selectedImprovementModel.modelId
+                    );
+                    statusEl.textContent = model ? `(${model.name})` : "(selected)";
+                } else {
+                    statusEl.textContent = "(none selected)";
+                }
+            }
+
+            function updateBenchmarkModelsCount() {
+                const count = selectedBenchmarkModels.length;
+                document.getElementById("benchmark-models-count").textContent =
                     `(${count} selected)`;
             }
 
@@ -598,9 +789,10 @@
                 const testCaseCount = countEl.dataset.count
                     ? parseInt(countEl.dataset.count, 10)
                     : 0;
-                const modelCount = AppUtils.getSelectedModelsCount();
+                const hasImprovementModel = !!selectedImprovementModel;
+                const hasBenchmarkModels = selectedBenchmarkModels.length > 0;
                 document.getElementById("start-btn").disabled =
-                    testCaseCount === 0 || modelCount === 0;
+                    testCaseCount === 0 || !hasImprovementModel || !hasBenchmarkModels;
             }
 
             async function loadTestCaseCount() {
@@ -614,19 +806,22 @@
                     const tcRes = await fetch(`/api/prompts/${selectedPromptId}/test-cases`);
                     const testCases = await tcRes.json();
                     const tcCount = testCases.length;
-                    const modelCount = AppUtils.getSelectedModelsCount();
+                    const benchmarkCount = selectedBenchmarkModels.length;
 
                     document.getElementById("test-case-count").dataset.count = tcCount;
 
                     if (tcCount === 0) {
                         document.getElementById("test-case-count").textContent =
                             "No test cases found. Add test cases first.";
-                    } else if (modelCount === 0) {
+                    } else if (!selectedImprovementModel) {
                         document.getElementById("test-case-count").textContent =
-                            `${tcCount} test case(s) available. Select at least one model to start.`;
+                            `${tcCount} test case(s) available. Select an improvement model and benchmark models to start.`;
+                    } else if (benchmarkCount === 0) {
+                        document.getElementById("test-case-count").textContent =
+                            `${tcCount} test case(s) available. Select at least one benchmark model to start.`;
                     } else {
                         document.getElementById("test-case-count").textContent =
-                            `${tcCount} test case(s) will be used with ${modelCount} selected model(s)`;
+                            `${tcCount} test case(s) will be used with ${benchmarkCount} benchmark model(s)`;
                     }
                     updateStartButtonState();
                 } catch (error) {
@@ -638,10 +833,17 @@
             async function startImprovement() {
                 if (!selectedPromptId) return;
 
-                const selectedModels = AppUtils.getSelectedModels();
-                if (selectedModels.length === 0) {
+                if (!selectedImprovementModel) {
                     AppUtils.showAppMessage(
-                        "Please select at least one model to run improvement",
+                        "Please select an improvement model",
+                        "error"
+                    );
+                    return;
+                }
+
+                if (selectedBenchmarkModels.length === 0) {
+                    AppUtils.showAppMessage(
+                        "Please select at least one benchmark model",
                         "error"
                     );
                     return;
@@ -669,7 +871,8 @@
                             promptId: selectedPromptId,
                             maxIterations,
                             runsPerLlm,
-                            selectedModels,
+                            improvementModel: selectedImprovementModel,
+                            benchmarkModels: selectedBenchmarkModels,
                         }),
                     });
                     if (!res.ok) {

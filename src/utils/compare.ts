@@ -139,11 +139,12 @@ export function compare(
 
     const metrics = calculateMetrics(expectedType, expected, output);
 
+    const total = metrics.expectedFound - metrics.unexpectedCount;
     let score: number;
-    if (metrics.expectedTotal === 0 && metrics.unexpectedCount === 0) {
+    if (metrics.expectedTotal === 0 && total) {
         score = 1;
     } else {
-        score = metrics.expectedFound / (metrics.expectedTotal > 0 ? metrics.expectedTotal : 1);
+        score = total / (metrics.expectedTotal > 0 ? metrics.expectedTotal : 1);
     }
 
     return {
