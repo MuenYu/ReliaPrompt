@@ -51,13 +51,7 @@ export class OpenRouterClient implements LLMClient {
             const models: ModelInfo[] = [];
 
             for (const model of response.data) {
-                if (
-                    ![
-                        "openai/gpt-oss-safeguard-20b",
-                        "x-ai/grok-4.1-fast",
-                        "mistralai/mistral-nemo",
-                    ].includes(model.id)
-                ) {
+                if (!["x-ai/grok-4.1-fast", "mistralai/mistral-nemo"].includes(model.id)) {
                     continue;
                 }
                 models.push({
