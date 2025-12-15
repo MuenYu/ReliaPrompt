@@ -48,7 +48,8 @@ export class GroqClient implements LLMClient {
                 (model) =>
                     model.id.includes("llama-4") ||
                     model.id.includes("kimi-k2") ||
-                    model.id.includes("qwen")
+                    model.id.includes("qwen") ||
+                    model.id.includes("compound")
             );
             return chatModels.map((model) => ({
                 id: model.id,
