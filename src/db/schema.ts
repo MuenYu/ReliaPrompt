@@ -12,11 +12,11 @@ export const prompts = sqliteTable(
         name: text("name").notNull(),
         content: text("content").notNull(),
         version: integer("version").notNull().default(1),
-        parentVersionId: integer("parent_version_id").references(() => prompts.id),
+        parentVersionId: integer("parent_version_id").references((): any => prompts.id),
         promptGroupId: integer("prompt_group_id"),
         createdAt: text("created_at").notNull(),
     },
-    (table) => [index("prompts_prompt_group_id_idx").on(table.promptGroupId)]
+    (table): any => [index("prompts_prompt_group_id_idx").on(table.promptGroupId)]
 );
 
 export const testCases = sqliteTable(

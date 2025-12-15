@@ -11,10 +11,10 @@ function isValidParsedJSON(value: unknown): value is ParsedJSON {
         return true;
     }
     if (Array.isArray(value)) {
-        return value.every((item) => isValidParsedJSON(item));
+        return value.every((item) => !item || isValidParsedJSON(item));
     }
     if (typeof value === "object" && value !== null) {
-        return Object.values(value).every((val) => isValidParsedJSON(val));
+        return Object.values(value).every((val) => !val || isValidParsedJSON(val));
     }
     return false;
 }
