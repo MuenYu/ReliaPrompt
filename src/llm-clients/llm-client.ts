@@ -1,6 +1,7 @@
 import { getConfig } from "../database";
 import { DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE } from "../constants";
 import type { BaseTestResult } from "../services/test-runner";
+import type { ChangeHistory } from "../services/improvement-service";
 
 export { DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE };
 
@@ -18,7 +19,8 @@ export interface LLMClient {
     improvePrompt(
         currentPrompt: string,
         testResults: TestResultSummary[],
-        modelId: string
+        modelId: string,
+        previousChanges?: ChangeHistory[]
     ): Promise<string>;
 }
 
@@ -80,7 +82,8 @@ export function getImprovementPromptTemplate(): string {
 
 export function buildImprovementPrompt(
     currentPrompt: string,
-    testResults: TestResultSummary[]
+    testResults: TestResultSummary[],
+    previousChanges?: ChangeHistory[]
 ): string {
     const template = getImprovementPromptTemplate();
 
@@ -144,11 +147,28 @@ ${test.actualOutput ?? "ERROR: " + (test.error ?? "Unknown error")}
     const analysisHints =
         hints.length > 0 ? `Based on the failure analysis:\n${hints.join("\n")}` : "";
 
+    // Build previous changes section
+    let previousChangesSection = "";
+    if (previousChanges && previousChanges.length > 0) {
+        previousChangesSection = `## Previous Improvement Attempts:\n\n`;
+        previousChangesSection += `The following changes have already been attempted. Avoid repeating changes that did not improve the score.\n\n`;
+        
+        for (const change of previousChanges) {
+            const status = change.improvedScore 
+                ? `✓ Improved score from ${(change.resultingScore * 100).toFixed(1)}%` 
+                : `✗ Did not improve (score: ${(change.resultingScore * 100).toFixed(1)}%)`;
+            previousChangesSection += `### Iteration ${change.iteration}:\n`;
+            previousChangesSection += `- **Status:** ${status}\n`;
+            previousChangesSection += `- **Changes:** ${change.changeSummary}\n\n`;
+        }
+    }
+
     // Replace placeholders in template
     return template
         .replace(/\{\{CURRENT_PROMPT\}\}/g, currentPrompt)
         .replace(/\{\{TEST_SUMMARY\}\}/g, testSummary)
         .replace(/\{\{FAILURE_ANALYSIS\}\}/g, failureAnalysis)
         .replace(/\{\{FAILED_TEST_CASES\}\}/g, failedTestCases)
-        .replace(/\{\{ANALYSIS_HINTS\}\}/g, analysisHints);
+        .replace(/\{\{ANALYSIS_HINTS\}\}/g, analysisHints)
+        .replace(/\{\{PREVIOUS_CHANGES\}\}/g, previousChangesSection);
 }

@@ -12,6 +12,8 @@ export const DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE = `You are an expert prompt eng
 
 {{FAILED_TEST_CASES}}
 
+{{PREVIOUS_CHANGES}}
+
 ## Your Task:
 Analyze why the prompt is failing for these test cases and provide an improved version of the prompt.
 
@@ -22,5 +24,6 @@ The improved prompt should:
 2. Handle edge cases better
 3. Produce valid JSON that exactly matches the expected structure
 4. Not include extra fields or values beyond what is expected
+5. Avoid repeating changes that did not improve the score in previous attempts
 
 IMPORTANT: Return ONLY the improved prompt text, nothing else. Do not include any explanations, markdown formatting, or code blocks. Just the raw prompt text.`;

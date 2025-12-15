@@ -18,6 +18,15 @@ import {
 } from "./test-runner";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
+export interface ChangeHistory {
+    iteration: number;
+    previousPrompt: string;
+    newPrompt: string;
+    changeSummary: string;
+    improvedScore: boolean;
+    resultingScore: number;
+}
+
 export interface ImprovementProgress {
     jobId: string;
     status: "pending" | "running" | "completed" | "failed";
@@ -204,6 +213,50 @@ async function runImprovement(
     let currentBestPrompt = prompt.content;
     let currentBestScore = originalScore;
     let currentTestResults = originalResult.results;
+    const changeHistory: ChangeHistory[] = [];
+
+    // Helper function to generate a summary of changes between two prompts
+    function generateChangeSummary(oldPrompt: string, newPrompt: string): string {
+        const oldLines = oldPrompt.split('\n');
+        const newLines = newPrompt.split('\n');
+        
+        const added: string[] = [];
+        const removed: string[] = [];
+        
+        // Simple line-by-line comparison
+        const oldSet = new Set(oldLines.map(l => l.trim()));
+        const newSet = new Set(newLines.map(l => l.trim()));
+        
+        for (const line of newLines) {
+            const trimmed = line.trim();
+            if (trimmed && !oldSet.has(trimmed)) {
+                added.push(trimmed);
+            }
+        }
+        
+        for (const line of oldLines) {
+            const trimmed = line.trim();
+            if (trimmed && !newSet.has(trimmed)) {
+                removed.push(trimmed);
+            }
+        }
+        
+        const changes: string[] = [];
+        if (added.length > 0) {
+            const addedPreview = added.slice(0, 3).map(l => l.length > 50 ? l.substring(0, 50) + '...' : l).join('; ');
+            changes.push(`Added: ${addedPreview}${added.length > 3 ? ` (and ${added.length - 3} more)` : ''}`);
+        }
+        if (removed.length > 0) {
+            const removedPreview = removed.slice(0, 3).map(l => l.length > 50 ? l.substring(0, 50) + '...' : l).join('; ');
+            changes.push(`Removed: ${removedPreview}${removed.length > 3 ? ` (and ${removed.length - 3} more)` : ''}`);
+        }
+        
+        if (changes.length === 0) {
+            return "Minor formatting or whitespace changes";
+        }
+        
+        return changes.join(' | ');
+    }
 
     for (let iteration = 1; iteration <= maxIterations; iteration++) {
         progress.currentIteration = iteration;
@@ -221,7 +274,8 @@ async function runImprovement(
             improvedPrompt = await improvementRunner.client.improvePrompt(
                 currentBestPrompt,
                 testSummary,
-                improvementRunner.modelId
+                improvementRunner.modelId,
+                changeHistory
             );
         } catch (error) {
             improvementError = getErrorMessage(error);
@@ -255,7 +309,20 @@ async function runImprovement(
             );
             log(`Improved prompt score: ${(result.score * 100).toFixed(1)}% (was ${(currentBestScore * 100).toFixed(1)}%)`);
 
-            if (result.score > currentBestScore) {
+            const improved = result.score > currentBestScore;
+            const changeSummary = generateChangeSummary(currentBestPrompt, improvedPrompt);
+            
+            // Record this change attempt in history
+            changeHistory.push({
+                iteration,
+                previousPrompt: currentBestPrompt,
+                newPrompt: improvedPrompt,
+                changeSummary,
+                improvedScore: improved,
+                resultingScore: result.score,
+            });
+
+            if (improved) {
                 log(`✓ Improvement found! Score increased by ${((result.score - currentBestScore) * 100).toFixed(1)}%`);
                 currentBestPrompt = improvedPrompt;
                 currentBestScore = result.score;

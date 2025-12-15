@@ -6,6 +6,7 @@ import {
 import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
+import type { ChangeHistory } from "../services/improvement-service";
 
 export class BedrockClient implements LLMClient {
     name = "Bedrock";
@@ -218,9 +219,10 @@ export class BedrockClient implements LLMClient {
     async improvePrompt(
         currentPrompt: string,
         testResults: TestResultSummary[],
-        modelId: string
+        modelId: string,
+        previousChanges?: ChangeHistory[]
     ): Promise<string> {
-        const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
+        const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults, previousChanges);
         return this.makeRequest(
             [{ role: "user", content: improvementPrompt }],
             modelId,

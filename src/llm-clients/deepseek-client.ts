@@ -1,6 +1,7 @@
 import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError, LLMError } from "../errors";
+import type { ChangeHistory } from "../services/improvement-service";
 
 interface DeepseekModel {
     id: string;
@@ -114,9 +115,10 @@ export class DeepseekClient implements LLMClient {
     async improvePrompt(
         currentPrompt: string,
         testResults: TestResultSummary[],
-        modelId: string
+        modelId: string,
+        previousChanges?: ChangeHistory[]
     ): Promise<string> {
-        const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults);
+        const improvementPrompt = buildImprovementPrompt(currentPrompt, testResults, previousChanges);
         return this.makeRequest(
             [{ role: "user", content: improvementPrompt }],
             0.7,
