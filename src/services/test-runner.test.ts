@@ -1,64 +1,72 @@
 import { test, expect, describe, beforeEach, mock } from "bun:test";
-import {
-    runTests,
-    startTestRun,
-    getTestProgress,
-    getTestResultSummary,
-    type ModelRunner,
-    type LLMTestResult,
-} from "./test-runner";
-import type { LLMClient } from "../llm-clients/llm-client";
-import type { Prompt, TestCase } from "../database";
-import { ParseType } from "../utils/parse";
-import { ConfigurationError, NotFoundError } from "../errors";
 
-// Mock database functions
+// Set up mocks BEFORE any other imports to ensure they intercept module loading
+// Mock database functions - these need to be defined before mock.module calls
 const mockCreateTestJob = mock(() => {});
 const mockUpdateTestJob = mock(() => {});
 const mockCreateTestResult = mock(() => {});
-const mockGetTestCasesForPrompt = mock(() => [] as TestCase[]);
-const mockGetPromptByIdOrFail = mock(() => ({}) as Prompt);
-const mockGetConfig = mock(() => null as string | null);
+const mockGetTestCasesForPrompt = mock(() => []);
+const mockGetPromptByIdOrFail = mock(() => ({}));
+const mockGetConfig = mock(() => null);
 
 // Mock LLM clients module
-const mockGetConfiguredClients = mock(() => [] as LLMClient[]);
+const mockGetConfiguredClients = mock(() => []);
 
 // Mock the db module to prevent database initialization errors
-mock.module("../db", () => ({
-    getDb: () => ({
-        select: () => ({
-            from: () => ({
-                where: () => ({
-                    get: () => null,
-                    all: () => [],
-                }),
+const mockDb = {
+    select: () => ({
+        from: () => ({
+            where: () => ({
+                get: () => null,
+                all: () => [],
             }),
         }),
-        insert: () => ({
-            values: () => ({
-                returning: () => ({
-                    get: () => ({}),
-                }),
+    }),
+    insert: () => ({
+        values: () => ({
+            returning: () => ({
+                get: () => ({}),
             }),
         }),
-        update: () => ({
-            set: () => ({
-                where: () => ({
-                    run: () => {},
-                }),
-            }),
-        }),
-        delete: () => ({
+    }),
+    update: () => ({
+        set: () => ({
             where: () => ({
                 run: () => {},
             }),
         }),
     }),
-    getSqlDb: () => ({
-        run: () => {},
+    delete: () => ({
+        where: () => ({
+            run: () => {},
+        }),
     }),
+};
+
+// Initialize mock database state
+let mockDbInitialized = true;
+
+// Set up module mocks FIRST, before any imports that might load these modules
+mock.module("../db", () => ({
+    getDb: () => {
+        if (!mockDbInitialized) {
+            throw new Error("Database not initialized. Call initializeDatabase() first.");
+        }
+        return mockDb;
+    },
+    getSqlDb: () => {
+        if (!mockDbInitialized) {
+            throw new Error("Database not initialized. Call initializeDatabase() first.");
+        }
+        return {
+            run: () => {},
+        };
+    },
     withSave: <T>(operation: () => T): T => operation(),
-    initializeDatabase: () => {},
+    initializeDatabase: () => {
+        mockDbInitialized = true;
+    },
+    schema: {},
 }));
 
 // Mock the database module
@@ -75,6 +83,20 @@ mock.module("../database", () => ({
 mock.module("../llm-clients", () => ({
     getConfiguredClients: mockGetConfiguredClients,
 }));
+
+// NOW import everything else after mocks are set up
+import {
+    runTests,
+    startTestRun,
+    getTestProgress,
+    getTestResultSummary,
+    type ModelRunner,
+    type LLMTestResult,
+} from "./test-runner";
+import type { LLMClient } from "../llm-clients/llm-client";
+import type { Prompt, TestCase } from "../database";
+import { ParseType } from "../utils/parse";
+import { ConfigurationError, NotFoundError } from "../errors";
 
 // Create a mock LLM client
 function createMockLLMClient(name: string): LLMClient {
