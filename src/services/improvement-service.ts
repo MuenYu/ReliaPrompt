@@ -165,13 +165,13 @@ async function runImprovement(
     progress.bestScore = originalScore;
     progress.bestPromptContent = prompt.content;
 
-    log(`Original prompt score: ${originalScore}%`);
+    log(`Original prompt score: ${(originalScore * 100).toFixed(1)}%`);
     updateImprovementJob(jobId, {
         bestScore: originalScore,
         bestPromptContent: prompt.content,
     });
 
-    if (originalScore === 100) {
+    if (originalScore === 1) {
         log("Original prompt already has perfect score! No improvement needed.");
         progress.status = "completed";
         updateImprovementJob(jobId, { status: "completed" });
@@ -228,7 +228,7 @@ async function runImprovement(
                     modelRunners,
                     runsPerLlm
                 );
-                log(`${improvement.llm}: Score = ${result.score}% (was ${currentBestScore}%)`);
+                log(`${improvement.llm}: Score = ${(result.score * 100).toFixed(1)}% (was ${(currentBestScore * 100).toFixed(1)}%)`);
 
                 improvementResults.push({
                     llm: improvement.llm,
@@ -247,7 +247,7 @@ async function runImprovement(
 
         if (bestImprovement) {
             log(
-                `Best improvement this iteration: ${bestImprovement.llm} with score ${bestImprovement.score}%`
+                `Best improvement this iteration: ${bestImprovement.llm} with score ${(bestImprovement.score * 100).toFixed(1)}%`
             );
             currentBestPrompt = bestImprovement.prompt;
             currentBestScore = bestImprovement.score;
@@ -260,7 +260,7 @@ async function runImprovement(
                 bestPromptContent: currentBestPrompt,
             });
 
-            if (currentBestScore === 100) {
+            if (currentBestScore === 1) {
                 log("Perfect score achieved!");
                 break;
             }
@@ -274,7 +274,7 @@ async function runImprovement(
 
     if (currentBestScore > originalScore) {
         log(
-            `\nImprovement complete! Score improved from ${originalScore}% to ${currentBestScore}%`
+            `\nImprovement complete! Score improved from ${(originalScore * 100).toFixed(1)}% to ${(currentBestScore * 100).toFixed(1)}%`
         );
         log("Saving improved prompt as new version...");
 
@@ -284,7 +284,7 @@ async function runImprovement(
         updateImprovementJob(jobId, { bestPromptVersionId: newPrompt.id });
     } else {
         log(
-            `\nNo improvement achieved. Original score: ${originalScore}%, Best attempt: ${currentBestScore}%`
+            `\nNo improvement achieved. Original score: ${(originalScore * 100).toFixed(1)}%, Best attempt: ${(currentBestScore * 100).toFixed(1)}%`
         );
     }
 

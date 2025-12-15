@@ -277,8 +277,8 @@ describe("test-runner", () => {
 
             expect(result.results[0].correctCount).toBe(1);
             expect(result.results[0].totalRuns).toBe(2);
-            expect(result.results[0].score).toBe(1); // Average of 1 and 0, rounded = 1
-            expect(result.results[0].testCaseResults[0].averageScore).toBe(1); // Rounded average
+            expect(result.results[0].score).toBe(0.5); // Average of 1 and 0 = 0.5
+            expect(result.results[0].testCaseResults[0].averageScore).toBe(0.5); // Average of 1 and 0
         });
 
         test("should handle ARRAY parse type", async () => {
@@ -459,7 +459,7 @@ describe("test-runner", () => {
                     llmName: "test-client (test-model)",
                     correctCount: 2,
                     totalRuns: 2,
-                    score: 100,
+                    score: 1,
                     testCaseResults: [
                         {
                             testCaseId: 1,
@@ -477,7 +477,7 @@ describe("test-runner", () => {
                                 },
                             ],
                             correctRuns: 1,
-                            averageScore: 100,
+                            averageScore: 1,
                         },
                     ],
                 },
@@ -531,7 +531,7 @@ describe("test-runner", () => {
                     llmName: "test-client (test-model)",
                     correctCount: 1,
                     totalRuns: 2,
-                    score: 50,
+                    score: 0.5,
                     testCaseResults: [
                         {
                             testCaseId: 1,
@@ -558,7 +558,7 @@ describe("test-runner", () => {
                                 },
                             ],
                             correctRuns: 1,
-                            averageScore: 50,
+                            averageScore: 0.5,
                         },
                     ],
                 },
@@ -576,7 +576,7 @@ describe("test-runner", () => {
                     llmName: "test-client (test-model)",
                     correctCount: 1,
                     totalRuns: 2,
-                    score: 50,
+                    score: 0.5,
                     testCaseResults: [
                         {
                             testCaseId: 1,
@@ -594,7 +594,7 @@ describe("test-runner", () => {
                                 },
                             ],
                             correctRuns: 1,
-                            averageScore: 100,
+                            averageScore: 1,
                         },
                         {
                             testCaseId: 2,

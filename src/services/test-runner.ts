@@ -44,7 +44,7 @@ export interface LLMTestResult {
     llmName: string;
     correctCount: number;
     totalRuns: number;
-    score: number; // 0-100 average score across all runs
+    score: number; // 0-1 average score across all runs
     testCaseResults: TestCaseResult[];
     durationStats?: {
         minMs: number;
@@ -66,7 +66,7 @@ export interface RunResult {
     runNumber: number;
     actualOutput: string | null;
     isCorrect: boolean;
-    score: number; // 0-100 percentage score
+    score: number; // 0-1 score
     expectedFound: number;
     expectedTotal: number;
     unexpectedCount: number;
@@ -308,7 +308,7 @@ export async function runTests(
                 }
             }
 
-            const averageScore = runs.length > 0 ? Math.round(totalScore / runs.length) : 0;
+            const averageScore = runs.length > 0 ? totalScore / runs.length : 0;
 
             return {
                 testCaseId: testCase.id,
@@ -339,7 +339,7 @@ export async function runTests(
                 : undefined;
 
         // Calculate average score across all runs
-        const averageScore = llmTotalRuns > 0 ? Math.round(llmTotalScore / llmTotalRuns) : 0;
+        const averageScore = llmTotalRuns > 0 ? llmTotalScore / llmTotalRuns : 0;
 
         return {
             llmName: runner.displayName,
@@ -356,7 +356,7 @@ export async function runTests(
 
     // Calculate overall score as average of all LLM scores
     const totalScore = llmResults.reduce((sum, r) => sum + r.score, 0);
-    const score = llmResults.length > 0 ? Math.round(totalScore / llmResults.length) : 0;
+    const score = llmResults.length > 0 ? totalScore / llmResults.length : 0;
 
     // Update job status and results if jobId is provided
     if (jobId) {

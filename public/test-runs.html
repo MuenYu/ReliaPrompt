@@ -674,15 +674,16 @@
                             if (job.status === "completed" && job.results) {
                                 try {
                                     const results = JSON.parse(job.results);
+                                    const overallScorePercent = scoreToPercent(results.overallScore);
                                     const overallBadgeClass =
-                                        results.overallScore >= 90
+                                        overallScorePercent >= 90
                                             ? ""
-                                            : results.overallScore >= 80
+                                            : overallScorePercent >= 80
                                               ? "medium"
                                               : "low";
                                     const bestScore = getBestLLMScore(results.llmResults);
 
-                                    scoreHtml = `<span class="score-badge ${overallBadgeClass}" data-tooltip="Overall">${results.overallScore}%</span>`;
+                                    scoreHtml = `<span class="score-badge ${overallBadgeClass}" data-tooltip="Overall">${overallScorePercent}%</span>`;
                                     if (bestScore !== null) {
                                         scoreHtml += `<span class="score-badge best" data-tooltip="Best LLM">${bestScore}%</span>`;
                                     }
@@ -803,9 +804,17 @@
                     `${status.completedTests || 0} / ${status.totalTests || 0} tests completed`;
             }
 
+            // Convert score from 0-1 range to 0-100 percentage for display
+            function scoreToPercent(score) {
+                // Handle both 0-1 and 0-100 formats for backward compatibility
+                if (score > 1) return score; // Already in 0-100 format
+                return Math.round(score * 100);
+            }
+
             function getBestLLMScore(llmResults) {
                 if (!llmResults || llmResults.length === 0) return null;
-                return Math.max(...llmResults.map((llm) => llm.score));
+                const maxScore = Math.max(...llmResults.map((llm) => llm.score));
+                return scoreToPercent(maxScore);
             }
 
             function showResults(results) {
@@ -820,16 +829,17 @@
 
                 // Get best LLM score
                 const bestScore = getBestLLMScore(results.llmResults);
+                const overallScorePercent = scoreToPercent(results.overallScore);
 
                 // Set overall score badge next to Results heading
                 const overallBadgeClass =
-                    results.overallScore >= 90 ? "" : results.overallScore >= 80 ? "medium" : "low";
+                    overallScorePercent >= 90 ? "" : overallScorePercent >= 80 ? "medium" : "low";
                 const bestBadgeClass = bestScore >= 90 ? "" : bestScore >= 80 ? "medium" : "low";
 
                 document.getElementById("overall-score-badge").className =
                     `score-badge ${overallBadgeClass}`;
                 document.getElementById("overall-score-badge").textContent =
-                    `${results.overallScore}%`;
+                    `${overallScorePercent}%`;
                 document.getElementById("overall-score-badge").dataset.tooltip = "Overall";
 
                 // Add best LLM score badge if we have multiple LLMs or just show it anyway
@@ -845,15 +855,16 @@
 
                 document.getElementById("llm-results").innerHTML = results.llmResults
                     .map((llm) => {
+                        const llmScorePercent = scoreToPercent(llm.score);
                         const badgeClass =
-                            llm.score >= 90 ? "" : llm.score >= 80 ? "medium" : "low";
+                            llmScorePercent >= 90 ? "" : llmScorePercent >= 80 ? "medium" : "low";
                         const avgDurationText = llm.durationStats
                             ? `<span class="duration-badge" title="Average response time">⏱ ${formatDuration(llm.durationStats.avgMs)}</span>`
                             : "";
                         return `
                         <div class="llm-result-row">
                             <span class="llm-result-name">${llm.llmName}</span>
-                            <span class="score-badge ${badgeClass}">${llm.score}% avg score</span>
+                            <span class="score-badge ${badgeClass}">${llmScorePercent}% avg score</span>
                             ${avgDurationText}
                             <button class="btn-view-details" onclick="openTestDetailsModal('${llm.llmName}')" title="View details">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -918,7 +929,7 @@
                     toggleBtnHtml +
                     llm.testCaseResults
                         .map((tc, i) => {
-                            const avgScore = tc.averageScore || 0;
+                            const avgScore = scoreToPercent(tc.averageScore || 0);
                             const scoreClass =
                                 avgScore >= 90 ? "" : avgScore >= 80 ? "medium" : "low";
 
@@ -930,7 +941,7 @@
                                     <div style="margin-bottom: 8px; font-weight: 600; color: var(--color-text-muted);">Individual Runs:</div>
                                     ${tc.runs
                                         .map((run, runIdx) => {
-                                            const runScore = run.score || 0;
+                                            const runScore = scoreToPercent(run.score || 0);
                                             const runScoreClass =
                                                 runScore >= 90
                                                     ? "success"
@@ -1010,7 +1021,7 @@
                                     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                                         ${tc.runs
                                             .map((run, runIdx) => {
-                                                const runScore = run.score || 0;
+                                                const runScore = scoreToPercent(run.score || 0);
                                                 const runScoreClass =
                                                     runScore >= 90
                                                         ? "success"
@@ -1081,13 +1092,14 @@
                 const llm = storedLlmResults[llmName];
                 if (!llm) return;
 
-                const badgeClass = llm.score >= 90 ? "" : llm.score >= 80 ? "medium" : "low";
+                const llmScorePercent = scoreToPercent(llm.score);
+                const badgeClass = llmScorePercent >= 90 ? "" : llmScorePercent >= 80 ? "medium" : "low";
 
                 document.getElementById("test-details-llm-name").textContent = llm.llmName;
                 document.getElementById("test-details-score-badge").className =
                     `score-badge ${badgeClass}`;
                 document.getElementById("test-details-score-badge").textContent =
-                    `${llm.score}% avg score`;
+                    `${llmScorePercent}% avg score`;
 
                 renderTestDetailsContent(llm);
 
