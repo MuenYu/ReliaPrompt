@@ -7,6 +7,7 @@ import {
     getConfig,
     TestCase,
     Prompt,
+    TestResult as DbTestResult,
 } from "../database";
 import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
 import { compare } from "../utils/compare";
@@ -62,8 +63,11 @@ export interface TestCaseResult {
     averageScore: number; // Average score across all runs for this test case
 }
 
-export interface RunResult {
-    runNumber: number;
+/**
+ * Base type containing common fields shared across test result types.
+ * Used by RunResult, TestResultSummary, and database TestResult.
+ */
+export interface BaseTestResult {
     actualOutput: string | null;
     isCorrect: boolean;
     score: number; // 0-1 score
@@ -72,6 +76,10 @@ export interface RunResult {
     unexpectedCount: number;
     error?: string;
     durationMs?: number;
+}
+
+export interface RunResult extends BaseTestResult {
+    runNumber: number;
 }
 
 const activeJobs = new Map<string, TestProgress>();
@@ -206,7 +214,6 @@ export async function runTests(
 
     const llmPromises = modelRunners.map(async (runner) => {
         const testCaseResults: TestCaseResult[] = [];
-        let llmTotalScore = 0;
         let llmCorrectCount = 0;
         let llmTotalRuns = 0;
 
@@ -235,7 +242,6 @@ export async function runTests(
                         llmCorrectCount++;
                     }
                     totalScore += comparison.score;
-                    llmTotalScore += comparison.score;
                     llmTotalRuns++;
 
                     runs.push({
@@ -338,8 +344,11 @@ export async function runTests(
                   }
                 : undefined;
 
-        // Calculate average score across all runs
-        const averageScore = llmTotalRuns > 0 ? llmTotalScore / llmTotalRuns : 0;
+        // Calculate average score across test cases (not all runs)
+        // This gives equal weight to each test case regardless of runs per test
+        const totalTestCaseScore = testCaseResults.reduce((sum, tc) => sum + tc.averageScore, 0);
+        const averageScore =
+            testCaseResults.length > 0 ? totalTestCaseScore / testCaseResults.length : 0;
 
         return {
             llmName: runner.displayName,
@@ -466,4 +475,48 @@ export function getTestResultSummary(results: LLMTestResult[]) {
     }
 
     return summary;
+}
+
+/**
+ * Converts a database TestResult to a RunResult.
+ * Handles conversion of isCorrect from integer (0/1) to boolean.
+ */
+export function dbTestResultToRunResult(dbResult: DbTestResult): RunResult {
+    return {
+        runNumber: dbResult.runNumber,
+        actualOutput: dbResult.actualOutput,
+        isCorrect: dbResult.isCorrect === 1,
+        score: dbResult.score,
+        expectedFound: dbResult.expectedFound,
+        expectedTotal: dbResult.expectedTotal,
+        unexpectedCount: dbResult.unexpectedCount,
+        error: dbResult.error ?? undefined,
+        durationMs: dbResult.durationMs ?? undefined,
+    };
+}
+
+/**
+ * Converts a RunResult to a database TestResult format (for creating new records).
+ * Note: This returns a partial object - you still need to provide jobId, testCaseId, and llmProvider.
+ */
+export function runResultToDbTestResult(
+    runResult: RunResult,
+    jobId: string,
+    testCaseId: number,
+    llmProvider: string
+): Omit<DbTestResult, "id" | "createdAt"> {
+    return {
+        jobId,
+        testCaseId,
+        llmProvider,
+        runNumber: runResult.runNumber,
+        actualOutput: runResult.actualOutput,
+        isCorrect: runResult.isCorrect ? 1 : 0,
+        score: runResult.score,
+        expectedFound: runResult.expectedFound,
+        expectedTotal: runResult.expectedTotal,
+        unexpectedCount: runResult.unexpectedCount,
+        error: runResult.error ?? null,
+        durationMs: runResult.durationMs ?? null,
+    };
 }

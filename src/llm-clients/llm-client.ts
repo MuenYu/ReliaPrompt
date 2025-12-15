@@ -1,5 +1,6 @@
 import { getConfig } from "../database";
 import { DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE } from "../constants";
+import type { BaseTestResult } from "../services/test-runner";
 
 export { DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE };
 
@@ -21,16 +22,9 @@ export interface LLMClient {
     ): Promise<string>;
 }
 
-export interface TestResultSummary {
+export interface TestResultSummary extends BaseTestResult {
     input: string;
     expectedOutput: string;
-    actualOutput: string | null;
-    isCorrect: boolean;
-    score: number;
-    expectedFound: number;
-    expectedTotal: number;
-    unexpectedCount: number;
-    error?: string;
 }
 
 let activeClients: LLMClient[] = [];
