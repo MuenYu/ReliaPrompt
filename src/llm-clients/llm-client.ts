@@ -53,7 +53,7 @@ export async function getAllAvailableModels(): Promise<ModelInfo[]> {
 
 function getFailureType(test: TestResultSummary): string {
     const hasMissing = test.expectedFound < test.expectedTotal;
-    const hasExtra = test.unexpectedCount > 0;
+    const hasExtra = test.unexpectedFound > 0;
 
     if (hasMissing && hasExtra) {
         return "Partial match (missing + extra items)";
@@ -69,8 +69,8 @@ function formatTestMetrics(test: TestResultSummary): string {
     const lines: string[] = [];
     lines.push(`Score: ${test.score}%`);
     lines.push(`Expected items: ${test.expectedFound}/${test.expectedTotal} found`);
-    if (test.unexpectedCount > 0) {
-        lines.push(`Unexpected items: ${test.unexpectedCount}`);
+    if (test.unexpectedFound > 0) {
+        lines.push(`Unexpected items: ${test.unexpectedFound}`);
     }
     lines.push(`Issue: ${getFailureType(test)}`);
     return lines.map((line) => `- ${line}`).join("\n");
@@ -98,7 +98,7 @@ export function buildImprovementPrompt(
 
     // Categorize failures
     const missingItemTests = failedTests.filter((t) => t.expectedFound < t.expectedTotal);
-    const extraItemTests = failedTests.filter((t) => t.unexpectedCount > 0);
+    const extraItemTests = failedTests.filter((t) => t.unexpectedFound > 0);
 
     // Build test summary
     const testSummary = `- Passed: ${passedTests.length}/${testResults.length}
@@ -152,10 +152,10 @@ ${test.actualOutput ?? "ERROR: " + (test.error ?? "Unknown error")}
     if (previousChanges && previousChanges.length > 0) {
         previousChangesSection = `## Previous Improvement Attempts:\n\n`;
         previousChangesSection += `The following changes have already been attempted. Avoid repeating changes that did not improve the score.\n\n`;
-        
+
         for (const change of previousChanges) {
-            const status = change.improvedScore 
-                ? `✓ Improved score from ${(change.resultingScore * 100).toFixed(1)}%` 
+            const status = change.improvedScore
+                ? `✓ Improved score from ${(change.resultingScore * 100).toFixed(1)}%`
                 : `✗ Did not improve (score: ${(change.resultingScore * 100).toFixed(1)}%)`;
             previousChangesSection += `### Iteration ${change.iteration}:\n`;
             previousChangesSection += `- **Status:** ${status}\n`;

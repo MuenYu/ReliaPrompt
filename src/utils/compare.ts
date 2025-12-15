@@ -28,7 +28,7 @@ function compareArraysAsSet(
 ): {
     expectedFound: number;
     expectedTotal: number;
-    unexpectedCount: number;
+    unexpectedFound: number;
 } {
     const uniqueExpected = getUniqueValues(expected);
     const uniqueOutput = getUniqueValues(output);
@@ -40,17 +40,17 @@ function compareArraysAsSet(
         }
     }
 
-    let unexpectedCount = 0;
+    let unexpectedFound = 0;
     for (const outputItem of uniqueOutput) {
         if (!existsInArray(outputItem, uniqueExpected)) {
-            unexpectedCount++;
+            unexpectedFound++;
         }
     }
 
     return {
         expectedFound,
         expectedTotal: uniqueExpected.length,
-        unexpectedCount,
+        unexpectedFound,
     };
 }
 
@@ -60,7 +60,7 @@ function compareObjects(
 ): {
     expectedFound: number;
     expectedTotal: number;
-    unexpectedCount: number;
+    unexpectedFound: number;
 } {
     const expectedKeys = Object.keys(expected);
     const outputKeys = Object.keys(output);
@@ -72,17 +72,17 @@ function compareObjects(
         }
     }
 
-    let unexpectedCount = 0;
+    let unexpectedFound = 0;
     for (const key of outputKeys) {
         if (!(key in expected)) {
-            unexpectedCount++;
+            unexpectedFound++;
         }
     }
 
     return {
         expectedFound,
         expectedTotal: expectedKeys.length,
-        unexpectedCount,
+        unexpectedFound,
     };
 }
 
@@ -93,13 +93,13 @@ function calculateMetrics(
 ): {
     expectedFound: number;
     expectedTotal: number;
-    unexpectedCount: number;
+    unexpectedFound: number;
 } {
     if (expectedType === ParseType.ARRAY && Array.isArray(expected)) {
         if (Array.isArray(output)) {
             return compareArraysAsSet(expected, output);
         } else {
-            return { expectedFound: 0, expectedTotal: expected.length, unexpectedCount: 0 };
+            return { expectedFound: 0, expectedTotal: expected.length, unexpectedFound: 0 };
         }
     }
 
@@ -113,19 +113,19 @@ function calculateMetrics(
             return {
                 expectedFound: 0,
                 expectedTotal: Object.keys(expected).length,
-                unexpectedCount: 0,
+                unexpectedFound: 0,
             };
         }
     }
 
     if (expectedType === ParseType.STRING && typeof expected === "string") {
         if (typeof output === "string" && equal(expected, output)) {
-            return { expectedFound: 1, expectedTotal: 1, unexpectedCount: 0 };
+            return { expectedFound: 1, expectedTotal: 1, unexpectedFound: 0 };
         }
-        return { expectedFound: 0, expectedTotal: 1, unexpectedCount: 0 };
+        return { expectedFound: 0, expectedTotal: 1, unexpectedFound: 0 };
     }
 
-    return { expectedFound: 0, expectedTotal: 0, unexpectedCount: 0 };
+    return { expectedFound: 0, expectedTotal: 0, unexpectedFound: 0 };
 }
 
 export function compare(
@@ -141,15 +141,15 @@ export function compare(
 
     let score: number;
     if (metrics.expectedTotal === 0) {
-        score = metrics.unexpectedCount === 0 ? 1 : 0;
+        score = metrics.unexpectedFound === 0 ? 1 : 0;
     } else {
-        score = (metrics.expectedFound - metrics.unexpectedCount) / metrics.expectedTotal;
+        score = (metrics.expectedFound - metrics.unexpectedFound) / metrics.expectedTotal;
     }
 
     return {
         score: score < 0 ? 0 : score,
         expectedTotal: metrics.expectedTotal,
         expectedFound: metrics.expectedFound,
-        unexpectedFound: metrics.unexpectedCount,
+        unexpectedFound: metrics.unexpectedFound,
     };
 }

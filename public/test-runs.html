@@ -993,14 +993,14 @@
                                                   : "✗";
                                             const expectedFound = run.expectedFound || 0;
                                             const expectedTotal = run.expectedTotal || 0;
-                                            const unexpectedCount = run.unexpectedCount || 0;
+                                            const unexpectedFound = run.unexpectedFound || 0;
 
                                             // Build score breakdown text
                                             let scoreBreakdown = "";
-                                            if (expectedTotal > 0 || unexpectedCount > 0) {
+                                            if (expectedTotal > 0 || unexpectedFound > 0) {
                                                 scoreBreakdown = `<div style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
                                                 <span style="color: var(--color-success);">${expectedFound}/${expectedTotal} expected found</span>
-                                                ${unexpectedCount > 0 ? `<span style="color: var(--color-failure); margin-left: 8px;">+${unexpectedCount} unexpected</span>` : ""}
+                                                ${unexpectedFound > 0 ? `<span style="color: var(--color-failure); margin-left: 8px;">+${unexpectedFound} unexpected</span>` : ""}
                                             </div>`;
                                             }
 
@@ -1041,7 +1041,7 @@
                                     0
                                 );
                                 const totalUnexpected = tc.runs.reduce(
-                                    (sum, r) => sum + (r.unexpectedCount || 0),
+                                    (sum, r) => sum + (r.unexpectedFound || 0),
                                     0
                                 );
                                 if (totalExpectedTotal > 0) {

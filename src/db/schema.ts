@@ -69,7 +69,7 @@ export const testResults = sqliteTable(
         score: real("score").notNull().default(0),
         expectedFound: integer("expected_found").notNull().default(0),
         expectedTotal: integer("expected_total").notNull().default(0),
-        unexpectedCount: integer("unexpected_count").notNull().default(0),
+        unexpectedFound: integer("unexpected_count").notNull().default(0),
         error: text("error"),
         durationMs: integer("duration_ms"),
         createdAt: text("created_at").notNull(),

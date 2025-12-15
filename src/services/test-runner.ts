@@ -73,7 +73,7 @@ export interface BaseTestResult {
     score: number; // 0-1 score
     expectedFound: number;
     expectedTotal: number;
-    unexpectedCount: number;
+    unexpectedFound: number;
     error?: string;
     durationMs?: number;
 }
@@ -251,7 +251,7 @@ export async function runTests(
                         score: comparison.score,
                         expectedFound: comparison.expectedFound,
                         expectedTotal: comparison.expectedTotal,
-                        unexpectedCount: comparison.unexpectedFound,
+                        unexpectedFound: comparison.unexpectedFound,
                         durationMs,
                     });
 
@@ -281,7 +281,7 @@ export async function runTests(
                         score: 0,
                         expectedFound: 0,
                         expectedTotal: 0,
-                        unexpectedCount: 0,
+                        unexpectedFound: 0,
                         error: errorMessage,
                     });
 
@@ -400,7 +400,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         score: number;
         expectedFound: number;
         expectedTotal: number;
-        unexpectedCount: number;
+        unexpectedFound: number;
     }> = [];
 
     const testCaseMap = new Map<
@@ -414,7 +414,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 score: number;
                 expectedFound: number;
                 expectedTotal: number;
-                unexpectedCount: number;
+                unexpectedFound: number;
             }>;
         }
     >();
@@ -437,7 +437,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                     score: run.score,
                     expectedFound: run.expectedFound,
                     expectedTotal: run.expectedTotal,
-                    unexpectedCount: run.unexpectedCount,
+                    unexpectedFound: run.unexpectedFound,
                 });
             }
         }
@@ -457,7 +457,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 score: representative.score,
                 expectedFound: representative.expectedFound,
                 expectedTotal: representative.expectedTotal,
-                unexpectedCount: representative.unexpectedCount,
+                unexpectedFound: representative.unexpectedFound,
             });
         } else if (anyCorrect) {
             const correct = tc.outputs.find((o) => o.isCorrect)!;
@@ -469,7 +469,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
                 score: correct.score,
                 expectedFound: correct.expectedFound,
                 expectedTotal: correct.expectedTotal,
-                unexpectedCount: correct.unexpectedCount,
+                unexpectedFound: correct.unexpectedFound,
             });
         }
     }
@@ -489,7 +489,7 @@ export function dbTestResultToRunResult(dbResult: DbTestResult): RunResult {
         score: dbResult.score,
         expectedFound: dbResult.expectedFound,
         expectedTotal: dbResult.expectedTotal,
-        unexpectedCount: dbResult.unexpectedCount,
+        unexpectedFound: dbResult.unexpectedFound,
         error: dbResult.error ?? undefined,
         durationMs: dbResult.durationMs ?? undefined,
     };
@@ -515,7 +515,7 @@ export function runResultToDbTestResult(
         score: runResult.score,
         expectedFound: runResult.expectedFound,
         expectedTotal: runResult.expectedTotal,
-        unexpectedCount: runResult.unexpectedCount,
+        unexpectedFound: runResult.unexpectedFound,
         error: runResult.error ?? null,
         durationMs: runResult.durationMs ?? null,
     };

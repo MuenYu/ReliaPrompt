@@ -337,7 +337,7 @@ export function createTestResult(
     score: number,
     expectedFound: number,
     expectedTotal: number,
-    unexpectedCount: number,
+    unexpectedFound: number,
     durationMs?: number
 ) {
     return withSave(() => {
@@ -354,7 +354,7 @@ export function createTestResult(
                 score,
                 expectedFound,
                 expectedTotal,
-                unexpectedCount,
+                unexpectedFound,
                 durationMs: durationMs ?? null,
                 createdAt,
             })
