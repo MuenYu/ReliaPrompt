@@ -1,4 +1,4 @@
-const DEEPSEEK_API_KEY = "sk-a9b720e452444c7d9226f944f365baf9";
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
 
 export interface ModelSelection {
     provider: string;
