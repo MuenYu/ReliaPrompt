@@ -7,13 +7,19 @@ export enum ParseType {
 export type ParsedJSON = string | ParsedJSON[] | { [key: string]: ParsedJSON };
 
 function isValidParsedJSON(value: unknown): value is ParsedJSON {
+    console.log("GEO DEBUG value", value);
+
     if (typeof value === "string") {
         return true;
-    }
-    if (Array.isArray(value)) {
+    } else if (typeof value === "number") {
+        return true;
+    } else if (typeof value === "boolean") {
+        return true;
+    } else if (typeof value === "undefined") {
+        return true;
+    } else if (Array.isArray(value)) {
         return value.every((item) => !item || isValidParsedJSON(item));
-    }
-    if (typeof value === "object" && value !== null) {
+    } else if (typeof value === "object" && value !== null) {
         return Object.values(value).every((val) => !val || isValidParsedJSON(val));
     }
     return false;
