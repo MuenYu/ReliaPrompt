@@ -7,10 +7,10 @@
         <link rel="stylesheet" href="/styles.css" />
     </head>
     <body>
-        <div class="app-layout">
-            <!-- Navbar -->
-            <nav class="navbar">
-                <a href="/test-cases.html" class="navbar-brand">
+        <div class="app-layout app-shell" data-page="test-runs">
+            <!-- Rail -->
+            <aside class="app-rail" aria-label="Primary">
+                <a class="app-rail-brand" href="/test-cases.html" aria-label="Relia Prompt Home">
                     <svg
                         viewBox="0 0 24 24"
                         fill="none"
@@ -18,202 +18,158 @@
                         stroke-width="2"
                         stroke-linecap="round"
                         stroke-linejoin="round"
+                        aria-hidden="true"
                     >
                         <path d="M12 2L2 7l10 5 10-5-10-5z" />
                         <path d="M2 17l10 5 10-5" />
                         <path d="M2 12l10 5 10-5" />
                     </svg>
-                    <span>Relia Prompt</span>
                 </a>
-                <div class="navbar-nav hidden">
-                    <a href="/test-cases.html">Test Cases</a>
-                    <a href="/test-runs.html" class="active">Test Runs</a>
-                    <a href="/improve.html">Auto-Improve</a>
+                <nav class="app-rail-nav" aria-label="Sections">
+                    <a class="rail-link" href="/test-cases.html">
+                        <span class="rail-link-label">Test Cases</span>
+                    </a>
+                    <a class="rail-link active" href="/test-runs.html" aria-current="page">
+                        <span class="rail-link-label">Test Runs</span>
+                    </a>
+                    <a class="rail-link" href="/improve.html">
+                        <span class="rail-link-label">Auto-Improve</span>
+                    </a>
+                </nav>
+                <div class="app-rail-footer">
+                    <button class="rail-btn" id="setup-btn" title="LLMs">LLMs</button>
                 </div>
-                <div class="navbar-actions">
-                    <button class="btn-text" id="setup-btn" title="LLMs">LLMs</button>
-                </div>
-            </nav>
+            </aside>
 
-            <div class="app-body">
-                <!-- Sidebar -->
-                <aside class="sidebar">
-                    <div class="sidebar-header">
-                        <h3>Prompts</h3>
-                        <button class="btn-new-prompt" id="new-prompt-btn">
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                            >
-                                <line x1="12" y1="5" x2="12" y2="19" />
-                                <line x1="5" y1="12" x2="19" y2="12" />
-                            </svg>
-                            <span>New Prompt</span>
-                        </button>
-                    </div>
+            <!-- Prompts Pane -->
+            <aside class="app-pane app-pane-prompts" aria-label="Prompts">
+                <div class="pane-header">
+                    <div class="pane-title">Prompts</div>
+                    <button class="btn btn-primary btn-sm" id="new-prompt-btn">New</button>
+                </div>
+                <div class="pane-search">
+                    <input
+                        id="prompt-filter"
+                        type="search"
+                        placeholder="Search prompts…"
+                        autocomplete="off"
+                    />
+                    <div class="pane-search-hint">⌘K</div>
+                </div>
+                <div class="pane-body">
                     <div class="sidebar-list" id="sidebar-prompts">
                         <div class="sidebar-empty">Loading...</div>
                     </div>
-                </aside>
+                </div>
+            </aside>
 
-                <!-- Main Content -->
-                <main class="main-content">
-                    <div id="app-message"></div>
-
-                    <div class="page-header">
-                        <h1>Test Runs</h1>
-                        <p>Test your prompts against all configured LLMs</p>
+            <!-- Content Pane -->
+            <main class="app-pane app-pane-content" aria-label="Content">
+                <header class="content-header">
+                    <div class="content-header-main">
+                        <h1 class="content-title">Test Runs</h1>
+                        <p class="content-subtitle">Run your prompt against selected models and inspect results.</p>
                     </div>
+                </header>
 
+                <div id="app-message"></div>
+
+                <div class="content-body">
                     <!-- No Prompt Selected State -->
-                    <div id="no-prompt-message" class="no-prompt-selected">
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="16" y1="13" x2="8" y2="13" />
-                            <line x1="16" y1="17" x2="8" y2="17" />
-                            <polyline points="10 9 9 9 8 9" />
-                        </svg>
-                        <h3>Select a Prompt</h3>
-                        <p>Choose a prompt from the sidebar to run tests</p>
+                    <div id="no-prompt-message" class="empty-state">
+                        <div class="empty-state-icon" aria-hidden="true">🚀</div>
+                        <h3>Select a prompt</h3>
+                        <p>Pick a prompt on the left to run tests and compare LLM outputs.</p>
                     </div>
 
                     <!-- Test Section (shown when prompt selected) -->
                     <div id="test-section" class="hidden">
-                        <div class="card">
-                            <h2>Test "<span id="selected-prompt-name"></span>"</h2>
-                            <div
-                                id="test-case-count"
-                                style="color: var(--color-text-muted); margin-bottom: 16px"
-                            ></div>
-                            <div
-                                id="shared-test-cases-note"
-                                style="
-                                    color: var(--color-text-muted);
-                                    font-size: 0.85rem;
-                                    margin-bottom: 16px;
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 6px;
-                                "
-                            >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    style="width: 14px; height: 14px; flex-shrink: 0"
-                                >
-                                    <circle cx="12" cy="12" r="10" />
-                                    <line x1="12" y1="16" x2="12" y2="12" />
-                                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                                </svg>
-                                Test cases are shared across all versions of this prompt
-                            </div>
+                        <div class="content-grid">
+                            <section class="content-col">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h2>
+                                            Run tests for "<span id="selected-prompt-name"></span>"
+                                        </h2>
+                                    </div>
 
-                            <div class="runs-config" style="margin-bottom: 16px">
-                                <label
-                                    for="runs-per-test"
-                                    style="display: block; margin-bottom: 8px; font-weight: 500"
-                                    >Runs per test case:</label
-                                >
-                                <div style="display: flex; align-items: center; gap: 12px">
-                                    <input
-                                        type="range"
-                                        id="runs-per-test"
-                                        min="1"
-                                        max="10"
-                                        value="1"
-                                        style="flex: 1; max-width: 200px"
-                                    />
-                                    <span
-                                        id="runs-per-test-value"
-                                        style="min-width: 24px; font-weight: 600"
-                                        >1</span
-                                    >
-                                </div>
-                                <small
-                                    style="
-                                        color: var(--color-text-muted);
-                                        display: block;
-                                        margin-top: 4px;
-                                    "
-                                    >More runs = more reliable results, but takes longer</small
-                                >
-                            </div>
+                                    <div id="test-case-count" class="muted mb-20"></div>
+                                    <div class="helper-note mb-20">
+                                        Test cases are shared across all versions of this prompt.
+                                    </div>
 
-                            <div class="model-selection-section" style="margin-bottom: 16px">
-                                <label style="display: block; margin-bottom: 8px; font-weight: 500">
-                                    Models to test:
-                                    <span
-                                        id="selected-models-count"
-                                        style="font-weight: normal; color: var(--color-text-muted)"
-                                        >(0 selected)</span
-                                    >
-                                </label>
-                                <div id="test-models-selection" class="model-selection-container">
-                                    <div class="no-models">Loading models...</div>
-                                </div>
-                            </div>
+                                    <div class="runs-config mb-20">
+                                        <label for="runs-per-test">Runs per test case</label>
+                                        <div class="range-row">
+                                            <input
+                                                type="range"
+                                                id="runs-per-test"
+                                                min="1"
+                                                max="10"
+                                                value="1"
+                                            />
+                                            <span id="runs-per-test-value" class="range-value">1</span>
+                                        </div>
+                                        <small>More runs = more reliable results, but takes longer</small>
+                                    </div>
 
-                            <button id="run-btn" disabled>Run Tests</button>
+                                    <div class="model-selection-section mb-20">
+                                        <label>
+                                            Models to test
+                                            <span id="selected-models-count" class="muted"
+                                                >(0 selected)</span
+                                            >
+                                        </label>
+                                        <div id="test-models-selection" class="model-selection-container">
+                                            <div class="no-models">Loading models...</div>
+                                        </div>
+                                    </div>
 
-                            <div id="progress-section" class="progress-section hidden">
-                                <div class="progress-label">Overall Progress</div>
-                                <div class="progress-bar-container">
-                                    <div id="progress-bar" class="progress-bar" style="width: 0%">
-                                        0%
+                                    <button id="run-btn" disabled>Run Tests</button>
+
+                                    <div id="progress-section" class="progress-section hidden">
+                                        <div class="progress-label">Overall Progress</div>
+                                        <div class="progress-bar-container">
+                                            <div id="progress-bar" class="progress-bar" style="width: 0%">
+                                                0%
+                                            </div>
+                                        </div>
+                                        <div id="progress-details" class="muted" style="font-size: 14px"></div>
                                     </div>
                                 </div>
-                                <div
-                                    id="progress-details"
-                                    style="color: var(--color-text-muted); font-size: 14px"
-                                ></div>
-                            </div>
-                        </div>
+                            </section>
 
-                        <div id="results-section" class="hidden">
-                            <div class="card">
-                                <h2>
-                                    Results
-                                    <span
-                                        id="overall-score-badge"
-                                        class="score-badge"
-                                        data-tooltip="Overall"
-                                    ></span>
-                                    <span
-                                        id="best-score-badge"
-                                        class="score-badge best hidden"
-                                        data-tooltip="Best LLM"
-                                    ></span>
-                                </h2>
-                                <div id="llm-results" class="llm-results"></div>
-                            </div>
-                        </div>
+                            <section class="content-col">
+                                <div id="results-section" class="hidden">
+                                    <div class="card">
+                                        <h2>
+                                            Results
+                                            <span
+                                                id="overall-score-badge"
+                                                class="score-badge"
+                                                data-tooltip="Overall"
+                                            ></span>
+                                            <span
+                                                id="best-score-badge"
+                                                class="score-badge best hidden"
+                                                data-tooltip="Best LLM"
+                                            ></span>
+                                        </h2>
+                                        <div id="llm-results" class="llm-results"></div>
+                                    </div>
+                                </div>
 
-                        <!-- Previous Test Runs Section -->
-                        <div id="previous-runs-section" class="card" style="margin-top: 24px">
-                            <h2>Previous Test Runs</h2>
-                            <div id="previous-runs-list">
-                                <div style="color: var(--color-text-muted)">Loading...</div>
-                            </div>
+                                <div id="previous-runs-section" class="card">
+                                    <h2>Previous Test Runs</h2>
+                                    <div id="previous-runs-list">
+                                        <div class="muted">Loading...</div>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                     </div>
-                </main>
-            </div>
+                </div>
+            </main>
         </div>
 
         <!-- Config Modal -->
@@ -648,7 +604,6 @@
                 document
                     .getElementById("no-prompt-message")
                     .classList.toggle("hidden", hasSelection);
-                document.querySelector(".navbar-nav").classList.toggle("hidden", !hasSelection);
                 if (selectedPromptName) {
                     document.getElementById("selected-prompt-name").textContent =
                         selectedPromptName;
@@ -786,7 +741,7 @@
                         // Scroll to results
                         document
                             .getElementById("results-section")
-                            .scrollIntoView({ behavior: "smooth" });
+                            .scrollIntoView({ behavior: "auto", block: "start" });
                     } else {
                         AppUtils.showAppMessage("No results available for this test run", "info");
                     }

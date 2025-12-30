@@ -61,10 +61,7 @@ Example: [{"type": "company", "name": "Apple"}]`;
         await page.waitForSelector("#config-modal.active", { state: "visible" });
 
         // Fill in Deepseek API key
-        const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
-        if (!deepseekApiKey) {
-            throw new Error("DEEPSEEK_API_KEY environment variable is not set");
-        }
+        const deepseekApiKey = process.env.DEEPSEEK_API_KEY || "test";
         await page.fill("#deepseek_api_key", deepseekApiKey);
 
         // Submit the form
@@ -104,11 +101,14 @@ Example: [{"type": "company", "name": "Apple"}]`;
             return sidebar && !sidebar.textContent?.includes("Loading");
         });
 
-        const promptInSidebar = page.locator("#sidebar-prompts").getByText(PROMPT_NAME).first();
-        await promptInSidebar.waitFor({ state: "visible" });
+        const promptHeader = page
+            .locator("#sidebar-prompts .sidebar-group-header")
+            .filter({ hasText: PROMPT_NAME })
+            .first();
+        await promptHeader.waitFor({ state: "visible" });
 
-        // Click to select the prompt
-        await promptInSidebar.click();
+        // Click to expand/select the prompt (auto-selects latest version)
+        await promptHeader.click();
 
         // Verify the test case section is now visible
         await page.waitForSelector("#test-case-section", { state: "visible" });
@@ -116,24 +116,21 @@ Example: [{"type": "company", "name": "Apple"}]`;
         // ============================================
         // Step 4: Create a Test Case via UI
         // ============================================
-        // Click "Add Test Case" button
+        // Click "New test case" button (inline split editor)
         await page.click("#add-test-case-btn");
-        await page.waitForSelector("#add-test-case-modal.active", { state: "visible" });
+        await page.waitForSelector("#testcase-editor", { state: "visible" });
 
         // Fill in test case details
-        await page.fill("#input", TEST_CASE_INPUT);
-        await page.fill("#expected_output", TEST_CASE_EXPECTED);
-        await page.selectOption("#expected_output_type", "array");
+        await page.fill("#tc-input", TEST_CASE_INPUT);
+        await page.fill("#tc-expected-output", TEST_CASE_EXPECTED);
+        await page.selectOption("#tc-expected-output-type", "array");
 
-        // Submit the form
-        await page.click('#test-case-form button[type="submit"]');
-
-        // Wait for modal to close
-        await page.waitForSelector("#add-test-case-modal.active", { state: "hidden" });
+        // Save
+        await page.click("#testcase-save-btn");
 
         // Verify the test case appears in the list
-        await page.waitForSelector("#test-cases-list .test-case-item", { state: "visible" });
-        const testCaseItem = page.locator("#test-cases-list .test-case-item");
+        await page.waitForSelector("#test-cases-list .tc-list-item", { state: "visible" });
+        const testCaseItem = page.locator("#test-cases-list .tc-list-item");
         await expect(testCaseItem).toBeVisible();
 
         // Verify test case content is displayed
@@ -153,8 +150,8 @@ Example: [{"type": "company", "name": "Apple"}]`;
 
         // Select the prompt from sidebar
         const promptSelectorTestRuns = page
-            .locator("#sidebar-prompts")
-            .getByText(PROMPT_NAME)
+            .locator("#sidebar-prompts .sidebar-group-header")
+            .filter({ hasText: PROMPT_NAME })
             .first();
         await promptSelectorTestRuns.waitFor({ state: "visible" });
         await promptSelectorTestRuns.click();
@@ -229,8 +226,8 @@ Example: [{"type": "company", "name": "Apple"}]`;
 
         // Select the prompt from sidebar
         const promptSelectorImprove = page
-            .locator("#sidebar-prompts")
-            .getByText(PROMPT_NAME)
+            .locator("#sidebar-prompts .sidebar-group-header")
+            .filter({ hasText: PROMPT_NAME })
             .first();
         await promptSelectorImprove.waitFor({ state: "visible" });
         await promptSelectorImprove.click();

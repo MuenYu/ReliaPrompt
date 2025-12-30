@@ -78,6 +78,10 @@ const versionsCache = {};
 let availableModels = [];
 let selectedModels = [];
 
+// Prompt filter state (client-side)
+let promptFilterQuery = "";
+let lastLoadedPrompts = [];
+
 async function loadAvailableModels() {
     try {
         const res = await fetch("/api/models");
@@ -224,9 +228,37 @@ async function loadPromptSidebar() {
     try {
         const res = await fetch("/api/prompts");
         const prompts = await res.json();
+        lastLoadedPrompts = Array.isArray(prompts) ? prompts : [];
         const selectedId = getSelectedPromptId();
 
-        if (prompts.length === 0) {
+        // Check if selected prompt's group should be auto-expanded (use full list, not filtered)
+        if (selectedId) {
+            const selectedPrompt = lastLoadedPrompts.find((p) => p.id === selectedId);
+            if (selectedPrompt) {
+                expandedGroups.add(getPromptGroupId(selectedPrompt));
+            }
+        }
+
+        renderPromptSidebar(lastLoadedPrompts, selectedId);
+
+        window.dispatchEvent(
+            new CustomEvent("promptsLoaded", { detail: { prompts: lastLoadedPrompts, selectedId } })
+        );
+    } catch (error) {
+        sidebarList.innerHTML = '<div class="sidebar-empty">Error loading prompts</div>';
+    }
+}
+
+function renderPromptSidebar(prompts, selectedId) {
+    const sidebarList = document.getElementById("sidebar-prompts");
+    if (!sidebarList) return;
+
+    const q = (promptFilterQuery || "").trim().toLowerCase();
+    const filteredPrompts = q
+        ? prompts.filter((p) => (p.name || "").toLowerCase().includes(q))
+        : prompts;
+
+    if (prompts.length === 0) {
             sidebarList.innerHTML = `
                 <div class="sidebar-empty">
                     No prompts yet.<br>Create your first one!
@@ -235,19 +267,20 @@ async function loadPromptSidebar() {
             return;
         }
 
-        // Check if selected prompt's group should be auto-expanded
-        if (selectedId) {
-            const selectedPrompt = prompts.find((p) => p.id === selectedId);
-            if (selectedPrompt) {
-                expandedGroups.add(getPromptGroupId(selectedPrompt));
-            }
-        }
+    if (filteredPrompts.length === 0) {
+        sidebarList.innerHTML = `
+            <div class="sidebar-empty">
+                No matches.<br/>Try a different search.
+            </div>
+        `;
+        return;
+    }
 
-        sidebarList.innerHTML = prompts
-            .map((p) => {
-                const groupId = getPromptGroupId(p);
-                const isExpanded = expandedGroups.has(groupId);
-                return `
+    sidebarList.innerHTML = filteredPrompts
+        .map((p) => {
+            const groupId = getPromptGroupId(p);
+            const isExpanded = expandedGroups.has(groupId);
+            return `
                     <div class="sidebar-group ${isExpanded ? "expanded" : ""}" data-group-id="${groupId}" data-name="${escapeHtml(p.name)}">
                         <div class="sidebar-group-header" data-group-id="${groupId}" data-id="${p.id}">
                             <span class="sidebar-expand-icon">${isExpanded ? ICONS.chevronDown : ICONS.chevronRight}</span>
@@ -272,57 +305,41 @@ async function loadPromptSidebar() {
                         </div>
                     </div>
                 `;
-            })
-            .join("");
+        })
+        .join("");
 
-        // Add click handlers for group headers (expand/collapse)
-        sidebarList.querySelectorAll(".sidebar-group-header").forEach((header) => {
-            header.addEventListener("click", async (e) => {
-                // Don't toggle if clicking on action buttons
-                if (e.target.closest(".sidebar-action-btn")) return;
+    // Add click handlers for group headers (expand/collapse)
+    sidebarList.querySelectorAll(".sidebar-group-header").forEach((header) => {
+        header.addEventListener("click", async (e) => {
+            // Don't toggle if clicking on action buttons
+            if (e.target.closest(".sidebar-action-btn")) return;
 
-                const groupId = parseInt(header.dataset.groupId, 10);
-                const promptId = parseInt(header.dataset.id, 10);
-                await toggleVersionsExpand(groupId, promptId);
-            });
+            const groupId = parseInt(header.dataset.groupId, 10);
+            const promptId = parseInt(header.dataset.id, 10);
+            await toggleVersionsExpand(groupId, promptId);
         });
+    });
 
-        sidebarList
-            .querySelectorAll(".sidebar-group-actions .sidebar-action-btn.view")
-            .forEach((btn) => {
-                btn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    const id = parseInt(btn.dataset.id, 10);
-                    const name = btn.dataset.name;
-                    openViewPromptModal(id, name);
-                });
-            });
-
-        sidebarList.querySelectorAll(".sidebar-action-btn.delete").forEach((btn) => {
-            btn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const id = parseInt(btn.dataset.id, 10);
-                const name = btn.dataset.name;
-                const groupId = parseInt(btn.dataset.groupId, 10);
-                deletePromptFromSidebar(id, name, groupId);
-            });
+    sidebarList.querySelectorAll(".sidebar-group-actions .sidebar-action-btn.view").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id, 10);
+            const name = btn.dataset.name;
+            openViewPromptModal(id, name);
         });
+    });
 
-        // If expanded, load and render versions
-        for (const groupId of expandedGroups) {
-            if (!versionsCache[groupId]) {
-                // Find a prompt in this group to get the ID for API call
-                const prompt = prompts.find((p) => getPromptGroupId(p) === groupId);
-                if (prompt) {
-                    await loadVersionsForPrompt(groupId, prompt.id);
-                }
-            }
-        }
+    sidebarList.querySelectorAll(".sidebar-action-btn.delete").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const id = parseInt(btn.dataset.id, 10);
+            const name = btn.dataset.name;
+            const groupId = parseInt(btn.dataset.groupId, 10);
+            deletePromptFromSidebar(id, name, groupId);
+        });
+    });
 
-        window.dispatchEvent(new CustomEvent("promptsLoaded", { detail: { prompts, selectedId } }));
-    } catch (error) {
-        sidebarList.innerHTML = '<div class="sidebar-empty">Error loading prompts</div>';
-    }
+    // Note: versions are loaded on-demand when a group is expanded (see toggleVersionsExpand).
 }
 
 function formatVersionDate(dateStr) {
@@ -905,6 +922,15 @@ function scoreToPercent(score) {
 }
 
 function initAppLayout() {
+    // Prompt search in the prompts pane
+    const promptFilter = document.getElementById("prompt-filter");
+    if (promptFilter) {
+        promptFilter.addEventListener("input", () => {
+            promptFilterQuery = promptFilter.value || "";
+            renderPromptSidebar(lastLoadedPrompts, getSelectedPromptId());
+        });
+    }
+
     const setupBtn = document.getElementById("setup-btn");
     if (setupBtn) {
         setupBtn.addEventListener("click", openConfigModal);
@@ -990,6 +1016,15 @@ function initAppLayout() {
     }
 
     document.addEventListener("keydown", (e) => {
+        // Quick focus prompt search: Cmd/Ctrl+K
+        if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+            const pf = document.getElementById("prompt-filter");
+            if (pf) {
+                e.preventDefault();
+                pf.focus();
+            }
+        }
+
         if (e.key === "Escape") {
             closeConfigModal();
             closeNewPromptModal();
