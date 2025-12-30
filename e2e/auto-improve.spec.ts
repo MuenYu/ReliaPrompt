@@ -1,13 +1,108 @@
 import { test, expect } from "@playwright/test";
-import { e2eServer, type ServerInstance } from "./helpers/e2eServer";
-import {
-    configureDeepseek,
-    getAvailableModels,
-    createPrompt,
-    createTestCase,
-    clearDatabase,
-    type ModelSelection,
-} from "./helpers/api";
+import { e2eServer, type ServerInstance } from "./e2eServer";
+
+// Inline API helpers
+
+interface ModelInfo {
+    id: string;
+    name: string;
+    provider: string;
+}
+
+interface ModelSelection {
+    provider: string;
+    modelId: string;
+}
+
+interface Prompt {
+    id: number;
+    name: string;
+    content: string;
+}
+
+async function configureDeepseek(baseUrl: string): Promise<void> {
+    const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+    if (!deepseekApiKey) {
+        throw new Error("DEEPSEEK_API_KEY environment variable is not set");
+    }
+
+    const response = await fetch(`${baseUrl}/api/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deepseek_api_key: deepseekApiKey }),
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to configure Deepseek: ${response.statusText} - ${text.slice(0, 200)}`);
+    }
+}
+
+async function getAvailableModels(baseUrl: string): Promise<ModelInfo[]> {
+    const response = await fetch(`${baseUrl}/api/models`);
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to get models: ${response.statusText} - ${text.slice(0, 200)}`);
+    }
+    const text = await response.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`Failed to parse models response as JSON: ${text.slice(0, 200)}`);
+    }
+}
+
+async function createPrompt(baseUrl: string, name: string, content: string): Promise<Prompt> {
+    const response = await fetch(`${baseUrl}/api/prompts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, content }),
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+        throw new Error(`Failed to create prompt: ${response.statusText} - ${text.slice(0, 200)}`);
+    }
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error(`Failed to parse prompt response as JSON: ${text.slice(0, 200)}`);
+    }
+}
+
+async function createTestCase(
+    baseUrl: string,
+    promptId: number,
+    input: string,
+    expectedOutput: string,
+    expectedOutputType: string
+): Promise<void> {
+    const response = await fetch(`${baseUrl}/api/prompts/${promptId}/test-cases`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            input,
+            expected_output: expectedOutput,
+            expected_output_type: expectedOutputType,
+        }),
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to create test case: ${response.statusText} - ${text.slice(0, 200)}`);
+    }
+}
+
+async function clearDatabase(baseUrl: string): Promise<void> {
+    const response = await fetch(`${baseUrl}/api/test/clear`, {
+        method: "DELETE",
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Failed to clear database: ${response.statusText} - ${text.slice(0, 200)}`);
+    }
+}
 
 test.describe("Auto-Improve E2E", () => {
     let server: ServerInstance | null = null;

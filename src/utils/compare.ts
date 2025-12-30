@@ -1,13 +1,6 @@
 import equal from "fast-deep-equal";
 import { type ParsedJSON, ParseType } from "./parse";
 
-export interface ComparisonResult {
-    score: number;
-    expectedTotal: number;
-    expectedFound: number;
-    unexpectedFound: number;
-}
-
 function getUniqueValues(arr: unknown[]): unknown[] {
     const unique: unknown[] = [];
     for (const item of arr) {
@@ -132,7 +125,12 @@ export function compare(
     expected: ParsedJSON,
     output: ParsedJSON,
     expectedType: ParseType
-): ComparisonResult {
+): {
+    score: number;
+    expectedTotal: number;
+    expectedFound: number;
+    unexpectedFound: number;
+} {
     if (expected === undefined) {
         throw new Error("Expected value is undefined");
     }

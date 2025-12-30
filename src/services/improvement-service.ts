@@ -5,12 +5,11 @@ import {
     getPromptByIdOrFail,
     getTestCasesForPrompt,
     createPrompt,
-    getConfig,
     Prompt,
     TestCase,
 } from "../database";
 import { getConfiguredClients, ModelSelection } from "../llm-clients";
-import { runTests, getTestResultSummary, LLMTestResult, ModelRunner } from "./test-runner";
+import { runTests, getTestResultSummary, ModelRunner } from "./test-runner";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 export interface ChangeHistory {
@@ -105,20 +104,6 @@ function getModelRunnerFromSelection(selection: ModelSelection): ModelRunner {
         modelId: selection.modelId,
         displayName: `${selection.provider} (${selection.modelId})`,
     };
-}
-
-function getSavedModelRunners(): ModelRunner[] {
-    const savedModelsJson = getConfig("selected_models");
-    if (savedModelsJson) {
-        const savedModels = JSON.parse(savedModelsJson) as ModelSelection[];
-        if (Array.isArray(savedModels) && savedModels.length > 0) {
-            return getModelRunnersFromSelections(savedModels);
-        }
-    }
-
-    throw new ConfigurationError(
-        "No models selected. Please select at least one model in settings before running improvements."
-    );
 }
 
 export async function startImprovement(

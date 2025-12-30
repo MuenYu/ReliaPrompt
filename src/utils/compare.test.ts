@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { compare, ComparisonResult } from "./compare";
+import { compare } from "./compare";
 import { ParseType } from "./parse";
 
 describe("compare", () => {

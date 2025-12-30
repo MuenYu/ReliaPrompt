@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import Joi from "joi";
-import { ValidationError } from "../errors";
 
 /**
  * Validation middleware factory that validates request data using Joi schemas
