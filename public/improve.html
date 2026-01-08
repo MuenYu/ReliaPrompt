@@ -447,6 +447,16 @@
                                 required
                             ></textarea>
                         </div>
+                        <div class="form-group">
+                            <label for="new-prompt-schema">Expected Output Schema (JSON)</label>
+                            <textarea
+                                id="new-prompt-schema"
+                                name="expectedSchema"
+                                class="medium"
+                                placeholder='{"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}}'
+                            ></textarea>
+                            <small>Optional. JSON Schema for structured LLM output (used with response_format).</small>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="secondary" onclick="closeNewPromptModal()">
@@ -493,6 +503,16 @@
                             ></textarea>
                             <small>Saving will create a new version of this prompt</small>
                         </div>
+                        <div class="form-group">
+                            <label for="edit-prompt-schema">Expected Output Schema (JSON)</label>
+                            <textarea
+                                id="edit-prompt-schema"
+                                name="expectedSchema"
+                                class="medium"
+                                placeholder='{"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}}'
+                            ></textarea>
+                            <small>Optional. JSON Schema for structured LLM output.</small>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="secondary" onclick="closeEditPromptModal()">
@@ -527,7 +547,14 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <pre class="view-prompt-content" id="view-prompt-content"></pre>
+                    <div class="form-group">
+                        <label>Prompt Content</label>
+                        <pre class="view-prompt-content" id="view-prompt-content"></pre>
+                    </div>
+                    <div class="form-group" id="view-prompt-schema-group" style="display: none;">
+                        <label>Expected Output Schema</label>
+                        <pre class="view-prompt-content" id="view-prompt-schema"></pre>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="secondary" onclick="closeViewPromptModal()">
