@@ -172,9 +172,9 @@ app.get("/api/prompts", (req, res) => {
 
 app.post("/api/prompts", validate(createPromptSchema), (req, res) => {
     try {
-        const { name, content, parentVersionId } = req.body;
+        const { name, content, parentVersionId, expectedSchema } = req.body;
 
-        const prompt = createPrompt(name, content, parentVersionId);
+        const prompt = createPrompt(name, content, parentVersionId, expectedSchema);
         res.json(prompt);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });

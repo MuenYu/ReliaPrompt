@@ -56,21 +56,35 @@ export function initializeDefaultConfigs(): void {
     }
 }
 
-export function createPrompt(name: string, content: string, parentVersionId?: number) {
+export function createPrompt(
+    name: string,
+    content: string,
+    parentVersionId?: number,
+    expectedSchema?: string
+) {
     return withSave(() => {
         const db = getDb();
         let version = 1;
         let promptGroupId: number | null = null;
+        let schemaToUse = expectedSchema ?? null;
 
         if (parentVersionId) {
             const parent = db
-                .select({ version: prompts.version, promptGroupId: prompts.promptGroupId })
+                .select({
+                    version: prompts.version,
+                    promptGroupId: prompts.promptGroupId,
+                    expectedSchema: prompts.expectedSchema,
+                })
                 .from(prompts)
                 .where(eq(prompts.id, parentVersionId))
                 .get();
             if (parent) {
                 version = parent.version + 1;
                 promptGroupId = parent.promptGroupId;
+                // Inherit schema from parent if not explicitly provided
+                if (!expectedSchema && parent.expectedSchema) {
+                    schemaToUse = parent.expectedSchema;
+                }
             }
         }
 
@@ -80,6 +94,7 @@ export function createPrompt(name: string, content: string, parentVersionId?: nu
             .values({
                 name,
                 content,
+                expectedSchema: schemaToUse,
                 version,
                 parentVersionId: parentVersionId ?? null,
                 promptGroupId,
@@ -186,6 +201,7 @@ export function getLatestPrompts(): Prompt[] {
             id: prompts.id,
             name: prompts.name,
             content: prompts.content,
+            expectedSchema: prompts.expectedSchema,
             version: prompts.version,
             parentVersionId: prompts.parentVersionId,
             promptGroupId: prompts.promptGroupId,

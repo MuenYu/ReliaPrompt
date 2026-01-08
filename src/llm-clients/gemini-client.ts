@@ -96,6 +96,12 @@ export class GeminiClient implements LLMClient {
         // Ensure model ID has proper format
         const modelPath = modelId.startsWith("models/") ? modelId : `models/${modelId}`;
 
+        // Build generation config
+        const generationConfig: Record<string, unknown> = {
+            maxOutputTokens: 4096,
+            responseMimeType: "application/json",
+        };
+
         const response = await fetch(`${this.baseUrl}/${modelPath}:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: {
@@ -103,9 +109,7 @@ export class GeminiClient implements LLMClient {
             },
             body: JSON.stringify({
                 contents,
-                generationConfig: {
-                    maxOutputTokens: 4096,
-                },
+                generationConfig,
             }),
         });
 
@@ -119,8 +123,6 @@ export class GeminiClient implements LLMClient {
     }
 
     async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
-        // Gemini uses a different format - system instructions are passed separately
-        // or we can combine them in the first user message
         const combinedMessage = systemPrompt
             ? `${systemPrompt}\n\n---\n\n${userMessage}`
             : userMessage;
@@ -132,7 +134,8 @@ export class GeminiClient implements LLMClient {
                     parts: [{ text: combinedMessage }],
                 },
             ],
-            modelId
+            modelId,
+            ""
         );
     }
 

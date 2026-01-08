@@ -206,9 +206,19 @@ async function runImprovement(
     log(`Starting multi-agent improvement for prompt: "${prompt.name}" (id: ${prompt.id})`);
     log(`Improvement model: ${improvementRunner.displayName}`);
     log(`Benchmark models: ${benchmarkRunners.map((r) => r.displayName).join(", ")}`);
+    if (prompt.expectedSchema) {
+        log(`Using structured output with JSON schema`);
+    }
 
-    // Run initial tests
-    const originalResult = await runTests(prompt.content, testCases, benchmarkRunners, runsPerLlm);
+    // Run initial tests (pass expectedSchema for structured output)
+    const originalResult = await runTests(
+        prompt.content,
+        testCases,
+        benchmarkRunners,
+        runsPerLlm,
+        undefined, // no jobId
+        prompt.expectedSchema ?? undefined
+    );
     const originalScore = originalResult.score;
     const originalDurationMs = getAverageDuration(originalResult.results);
 
@@ -254,7 +264,9 @@ async function runImprovement(
                     currentPrompt,
                     testCases,
                     benchmarkRunners,
-                    runsPerLlm
+                    runsPerLlm,
+                    undefined, // no jobId
+                    prompt.expectedSchema ?? undefined
                 );
                 previousScore = currentScore;
                 previousDurationMs = currentDurationMs;
@@ -451,7 +463,9 @@ async function runImprovement(
                     currentPrompt,
                     testCases,
                     benchmarkRunners,
-                    runsPerLlm
+                    runsPerLlm,
+                    undefined, // no jobId
+                    prompt.expectedSchema ?? undefined
                 );
                 const newScore = testResult.score;
                 const newDurationMs = getAverageDuration(testResult.results);

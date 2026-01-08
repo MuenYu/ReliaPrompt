@@ -193,11 +193,35 @@ export async function runTests(
     testCases: TestCase[],
     modelRunners: ModelRunner[],
     runsPerTest: number = DEFAULT_RUNS_PER_TEST,
-    jobId?: string
+    jobId?: string,
+    expectedSchema?: string
 ): Promise<{ score: number; results: LLMTestResult[] }> {
     // Extract prompt content and ID
     const promptContent = typeof prompt === "string" ? prompt : prompt.content;
     const promptId = typeof prompt === "string" ? undefined : prompt.id;
+    
+    // If expectedSchema not passed explicitly, try to get from prompt object
+    const schemaString = expectedSchema ?? (typeof prompt === "object" ? prompt.expectedSchema : undefined);
+    
+    // Build the system prompt with schema hint if present
+    let systemPrompt = promptContent;
+    if (schemaString) {
+        try {
+            const parsedSchema = JSON.parse(schemaString);
+            // The schema can either be:
+            // 1. A full ResponseSchema object with {name, strict, schema} - extract the inner schema
+            // 2. A raw JSON Schema - use as-is
+            const schema = parsedSchema.schema && typeof parsedSchema.schema === "object"
+                ? parsedSchema.schema
+                : parsedSchema;
+            
+            // Append schema hint to the system prompt
+            systemPrompt = `${promptContent}\n\n## Response Schema:\n${JSON.stringify(schema)}`;
+        } catch {
+            // If parsing fails, ignore the schema
+            console.warn("Failed to parse expectedSchema, ignoring structured output");
+        }
+    }
 
     // Initialize progress tracking if jobId is provided
     if (jobId) {
@@ -225,8 +249,9 @@ export async function runTests(
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
                     const startTime = Date.now();
+                    // System prompt includes schema hint if present
                     const actualOutput = await runner.client.complete(
-                        promptContent,
+                        systemPrompt,
                         testCase.input,
                         runner.modelId
                     );

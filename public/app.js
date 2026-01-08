@@ -552,17 +552,33 @@ async function createNewPrompt(e) {
     e.preventDefault();
     const name = document.getElementById("new-prompt-name").value.trim();
     const content = document.getElementById("new-prompt-content").value.trim();
+    const expectedSchemaInput = document.getElementById("new-prompt-schema");
+    const expectedSchema = expectedSchemaInput ? expectedSchemaInput.value.trim() : "";
 
     if (!name || !content) {
         showAppMessage("Please fill in all fields", "error");
         return;
     }
 
+    // Validate expectedSchema is valid JSON if provided
+    if (expectedSchema) {
+        try {
+            JSON.parse(expectedSchema);
+        } catch {
+            showAppMessage("Expected output schema must be valid JSON", "error");
+            return;
+        }
+    }
+
     try {
+        const body = { name, content };
+        if (expectedSchema) {
+            body.expectedSchema = expectedSchema;
+        }
         const res = await fetch("/api/prompts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, content }),
+            body: JSON.stringify(body),
         });
 
         if (res.ok) {
@@ -601,6 +617,12 @@ async function openEditPromptModal(id, name) {
         document.getElementById("edit-prompt-version").textContent = `v${prompt.version}`;
         document.getElementById("edit-prompt-content").value = prompt.content;
 
+        // Populate expected schema field
+        const schemaField = document.getElementById("edit-prompt-schema");
+        if (schemaField) {
+            schemaField.value = prompt.expectedSchema || "";
+        }
+
         overlay.classList.add("active");
         document.getElementById("edit-prompt-content")?.focus();
     } catch (error) {
@@ -631,6 +653,24 @@ async function openViewPromptModal(id, name, version) {
         document.getElementById("view-prompt-version").textContent = versionLabel;
         document.getElementById("view-prompt-content").textContent = prompt.content;
 
+        // Display schema if present
+        const schemaGroup = document.getElementById("view-prompt-schema-group");
+        const schemaContent = document.getElementById("view-prompt-schema");
+        if (schemaGroup && schemaContent) {
+            if (prompt.expectedSchema) {
+                // Pretty-print the JSON schema
+                try {
+                    const parsed = JSON.parse(prompt.expectedSchema);
+                    schemaContent.textContent = JSON.stringify(parsed, null, 2);
+                } catch {
+                    schemaContent.textContent = prompt.expectedSchema;
+                }
+                schemaGroup.style.display = "block";
+            } else {
+                schemaGroup.style.display = "none";
+            }
+        }
+
         overlay.classList.add("active");
     } catch (error) {
         showAppMessage("Error loading prompt", "error");
@@ -649,20 +689,37 @@ async function saveEditedPrompt(e) {
     if (!editingPromptName) return;
 
     const content = document.getElementById("edit-prompt-content").value.trim();
+    const schemaField = document.getElementById("edit-prompt-schema");
+    const expectedSchema = schemaField ? schemaField.value.trim() : "";
+
     if (!content) {
         showAppMessage("Please enter prompt content", "error");
         return;
     }
 
+    // Validate expectedSchema is valid JSON if provided
+    if (expectedSchema) {
+        try {
+            JSON.parse(expectedSchema);
+        } catch {
+            showAppMessage("Expected output schema must be valid JSON", "error");
+            return;
+        }
+    }
+
     try {
+        const body = {
+            name: editingPromptName,
+            content,
+            parentVersionId: editingPromptId,
+        };
+        if (expectedSchema) {
+            body.expectedSchema = expectedSchema;
+        }
         const res = await fetch("/api/prompts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                name: editingPromptName,
-                content,
-                parentVersionId: editingPromptId,
-            }),
+            body: JSON.stringify(body),
         });
 
         if (res.ok) {

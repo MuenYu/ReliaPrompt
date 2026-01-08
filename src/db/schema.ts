@@ -11,6 +11,7 @@ export const prompts = sqliteTable(
         id: integer("id").primaryKey({ autoIncrement: true }),
         name: text("name").notNull(),
         content: text("content").notNull(),
+        expectedSchema: text("expected_schema"),
         version: integer("version").notNull().default(1),
         parentVersionId: integer("parent_version_id").references((): any => prompts.id),
         promptGroupId: integer("prompt_group_id"),

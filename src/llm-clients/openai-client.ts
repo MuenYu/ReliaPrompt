@@ -74,11 +74,15 @@ export class OpenAIClient implements LLMClient {
             throw new ConfigurationError("OpenAI API key not configured");
         }
 
-        const response = await client.chat.completions.create({
+        // Build request options
+        const requestOptions: OpenAI.ChatCompletionCreateParams = {
             model: modelId,
             messages,
             max_completion_tokens: 4096,
-        });
+            response_format: { type: "json_object" },
+        };
+
+        const response = await client.chat.completions.create(requestOptions);
 
         return response.choices[0]?.message?.content ?? defaultValue;
     }
@@ -89,7 +93,8 @@ export class OpenAIClient implements LLMClient {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
-            modelId
+            modelId,
+            ""
         );
     }
 

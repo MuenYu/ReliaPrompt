@@ -56,6 +56,24 @@ export const createPromptSchema = Joi.object({
         "string.empty": "Content cannot be empty",
         "any.required": "Content is required",
     }),
+    expectedSchema: Joi.string()
+        .trim()
+        .allow("")
+        .optional()
+        .custom((value, helpers) => {
+            if (!value || value.trim() === "") {
+                return undefined; // Allow empty/undefined
+            }
+            try {
+                JSON.parse(value);
+                return value;
+            } catch {
+                return helpers.error("any.invalid");
+            }
+        })
+        .messages({
+            "any.invalid": "Expected schema must be valid JSON",
+        }),
     parentVersionId: Joi.number().integer().positive().optional(),
 }).unknown(false);
 

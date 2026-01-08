@@ -80,18 +80,22 @@ export class GroqClient implements LLMClient {
             throw new ConfigurationError("Groq API key not configured");
         }
 
+        // Build request body
+        const requestBody: Record<string, unknown> = {
+            model: modelId,
+            messages,
+            temperature,
+            max_tokens: 4096,
+            response_format: { type: "json_object" },
+        };
+
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${apiKey}`,
             },
-            body: JSON.stringify({
-                model: modelId,
-                messages,
-                temperature,
-                max_tokens: 4096,
-            }),
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -112,7 +116,8 @@ export class GroqClient implements LLMClient {
                 { role: "user", content: userMessage },
             ],
             0.1,
-            modelId
+            modelId,
+            ""
         );
     }
 
