@@ -106,7 +106,6 @@ function createMockLLMClient(name: string): LLMClient {
         isConfigured: () => true,
         listModels: async () => [],
         complete: mockComplete,
-        improvePrompt: async () => "",
     };
 }
 

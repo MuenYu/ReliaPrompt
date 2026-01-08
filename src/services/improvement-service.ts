@@ -31,16 +31,6 @@ import {
     TimingMetrics,
 } from "./agents";
 
-// Legacy type - kept for backwards compatibility with LLM client improvePrompt method
-export interface ChangeHistory {
-    iteration: number;
-    previousPrompt: string;
-    newPrompt: string;
-    changeSummary: string;
-    improvedScore: boolean;
-    resultingScore: number;
-}
-
 export interface ImprovementProgress {
     jobId: string;
     status: "pending" | "running" | "completed" | "failed";
@@ -411,8 +401,8 @@ async function runImprovement(
 
                 if (proposedSuggestions.length === 0) {
                     log("No suggestions proposed, skipping this iteration");
-                    continue;
-                }
+            continue;
+        }
 
                 log(`Proposed ${proposedSuggestions.length} suggestion(s):`);
                 for (const s of proposedSuggestions) {
@@ -446,8 +436,8 @@ async function runImprovement(
 
                 if (newPrompt.trim() === currentPrompt.trim()) {
                     log("No changes made to prompt, skipping this iteration");
-                    continue;
-                }
+            continue;
+        }
 
                 // Mark suggestions as applied
                 const suggestionIds = storedSuggestions.map((s) => s.id);
@@ -500,7 +490,7 @@ async function runImprovement(
                     progress.bestScore = newScore;
                     progress.bestPromptContent = currentPrompt;
                     bestDurationMs = newDurationMs;
-                    updateImprovementJob(jobId, {
+                updateImprovementJob(jobId, {
                         bestScore: newScore,
                         bestPromptContent: currentPrompt,
                     });

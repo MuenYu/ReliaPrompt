@@ -25,13 +25,7 @@ import {
     bulkCreateTestCases,
     clearAllData,
 } from "./database";
-import {
-    refreshClients,
-    getAllAvailableModels,
-    ModelSelection,
-    DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE,
-    getImprovementPromptTemplate,
-} from "./llm-clients";
+import { refreshClients, getAllAvailableModels, ModelSelection } from "./llm-clients";
 import { startTestRun, getTestProgress, TestResults } from "./services/test-runner";
 import { startImprovement, getImprovementProgress } from "./services/improvement-service";
 import { getErrorMessage, getErrorStatusCode, NotFoundError } from "./errors";
@@ -39,7 +33,6 @@ import { parse, ParseType } from "./utils/parse";
 import { validate, validateIdParam } from "./middleware/validation";
 import {
     configBodySchema,
-    improvementPromptTemplateSchema,
     createPromptSchema,
     createTestCaseSchema,
     updateTestCaseSchema,
@@ -138,28 +131,7 @@ app.get("/api/models", async (req, res) => {
     }
 });
 
-app.get("/api/config/improvement-prompt", (req, res) => {
-    try {
-        res.json({
-            template: getImprovementPromptTemplate(),
-            defaultTemplate: DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE,
-        });
-    } catch (error) {
-        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
-    }
-});
-
-app.put("/api/config/improvement-prompt", validate(improvementPromptTemplateSchema), (req, res) => {
-    try {
-        const { template } = req.body;
-
-        setConfig("improvement_prompt_template", template);
-
-        res.json({ success: true, message: "Improvement prompt template updated" });
-    } catch (error) {
-        res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
-    }
-});
+// Legacy improvement-prompt endpoints removed - multi-agent system uses its own prompts
 
 app.get("/api/prompts", (req, res) => {
     try {

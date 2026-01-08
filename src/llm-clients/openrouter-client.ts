@@ -1,8 +1,7 @@
 import { OpenRouter } from "@openrouter/sdk";
-import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
-import type { ChangeHistory } from "../services/improvement-service";
 
 export class OpenRouterClient implements LLMClient {
     name = "OpenRouter";
@@ -111,25 +110,6 @@ export class OpenRouterClient implements LLMClient {
             ],
             modelId,
             0.1
-        );
-    }
-
-    async improvePrompt(
-        currentPrompt: string,
-        testResults: TestResultSummary[],
-        modelId: string,
-        previousChanges?: ChangeHistory[]
-    ): Promise<string> {
-        const improvementPrompt = buildImprovementPrompt(
-            currentPrompt,
-            testResults,
-            previousChanges
-        );
-        return this.makeRequest(
-            [{ role: "user", content: improvementPrompt }],
-            modelId,
-            0.7,
-            currentPrompt
         );
     }
 }

@@ -39,13 +39,6 @@ export const configBodySchema = Joi.object({
         .optional(),
 }).unknown(false);
 
-export const improvementPromptTemplateSchema = Joi.object({
-    template: Joi.string().trim().min(1).required().messages({
-        "string.empty": "template cannot be empty",
-        "any.required": "template is required",
-    }),
-}).unknown(false);
-
 // Prompt schemas
 export const createPromptSchema = Joi.object({
     name: Joi.string().trim().min(1).required().messages({

@@ -16,7 +16,6 @@ import {
     type Suggestion,
 } from "./db/schema";
 import { NotFoundError, ensureExists } from "./errors";
-import { DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE } from "./constants";
 
 export { initializeDatabase } from "./db";
 export type { Prompt, TestCase, TestJob, TestResult, ImprovementJob, Suggestion };
@@ -49,11 +48,7 @@ export function getAllConfig(): Record<string, string> {
 }
 
 export function initializeDefaultConfigs(): void {
-    // Initialize improvement prompt template if not set
-    const existingTemplate = getConfig("improvement_prompt_template");
-    if (!existingTemplate) {
-        setConfig("improvement_prompt_template", DEFAULT_IMPROVEMENT_PROMPT_TEMPLATE);
-    }
+    // Reserved for future default config initialization
 }
 
 export function createPrompt(

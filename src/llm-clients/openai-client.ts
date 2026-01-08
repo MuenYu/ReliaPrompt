@@ -1,8 +1,7 @@
 import OpenAI from "openai";
-import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
-import type { ChangeHistory } from "../services/improvement-service";
 
 export class OpenAIClient implements LLMClient {
     name = "OpenAI";
@@ -95,24 +94,6 @@ export class OpenAIClient implements LLMClient {
             ],
             modelId,
             ""
-        );
-    }
-
-    async improvePrompt(
-        currentPrompt: string,
-        testResults: TestResultSummary[],
-        modelId: string,
-        previousChanges?: ChangeHistory[]
-    ): Promise<string> {
-        const improvementPrompt = buildImprovementPrompt(
-            currentPrompt,
-            testResults,
-            previousChanges
-        );
-        return this.makeRequest(
-            [{ role: "user", content: improvementPrompt }],
-            modelId,
-            currentPrompt
         );
     }
 }

@@ -1,7 +1,6 @@
-import { LLMClient, ModelInfo, TestResultSummary, buildImprovementPrompt } from "./llm-client";
+import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError, LLMError } from "../errors";
-import type { ChangeHistory } from "../services/improvement-service";
 
 interface GroqModel {
     id: string;
@@ -118,25 +117,6 @@ export class GroqClient implements LLMClient {
             0.1,
             modelId,
             ""
-        );
-    }
-
-    async improvePrompt(
-        currentPrompt: string,
-        testResults: TestResultSummary[],
-        modelId: string,
-        previousChanges?: ChangeHistory[]
-    ): Promise<string> {
-        const improvementPrompt = buildImprovementPrompt(
-            currentPrompt,
-            testResults,
-            previousChanges
-        );
-        return this.makeRequest(
-            [{ role: "user", content: improvementPrompt }],
-            0.7,
-            modelId,
-            currentPrompt
         );
     }
 }
