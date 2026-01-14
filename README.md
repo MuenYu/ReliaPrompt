@@ -1,7 +1,7 @@
 # Relia Prompt
 
-Test, benchmark and improve LLM prompts across multiple providers and models.
-This tool is aimed at agentic use-cases for large production application that require specific, repeatable, reliable llm calls. For example, extracting sentiment from social media posts, converting a sentence into structured JSON, etc.
+Test, benchmark and improve LLM prompts across multiple providers and models.  
+This tool is aimed at agentic use-cases for large production applications that require fast and reliable llm calls. For example, extracting sentiment from social media posts, converting a sentence into structured JSON, etc.
 
 <img width="1612" height="931" alt="Screenshot" src="https://github.com/user-attachments/assets/acf9619a-1ebf-4c66-a597-10864a1c472f" />
 
