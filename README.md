@@ -1,169 +1,65 @@
-# LLM Prompt Testing Tool
+# Relia Prompt
 
-A web application for testing agentic server-side prompts against multiple LLMs with automated scoring and prompt improvement capabilities.
-<img width="1612" height="931" alt="Screenshot 2026-01-15 at 2 08 56 am" src="https://github.com/user-attachments/assets/acf9619a-1ebf-4c66-a597-10864a1c472f" />
+Test and improve LLM prompts across multiple providers with automated scoring and AI-powered prompt optimization.
 
+<img width="1612" height="931" alt="Screenshot" src="https://github.com/user-attachments/assets/acf9619a-1ebf-4c66-a597-10864a1c472f" />
 
 ## Features
 
-- **Multi-LLM Testing**: Test prompts against Multiple LLMs and models
-- **Parallel Execution**: Run tests in parallel across all LLMs
-- **10x Repeatability**: Each test case runs n times per LLM to measure consistency
-- **Auto-Improvement**: LLMs automatically suggest and test prompt improvements
-- **Version Control**: All prompts are versioned with full history
+- **Multi-Provider Testing** – OpenAI, Bedrock, DeepSeek, Gemini, Groq, OpenRouter
+- **Parallel Execution** – Run tests concurrently across all configured LLMs
+- **Repeatability** – Each test runs N times per model to measure consistency
+- **Auto-Improvement** – LLMs analyze failures and suggest prompt improvements
+- **Version Control** – Full prompt history with easy rollback
 
 ## Quick Start
 
-1. **Install dependencies:**
+```bash
+# Install dependencies
+bun install
 
-    ```bash
-    bun install
-    ```
+# Start development server
+bun dev
 
-2. **Start the development server:**
+# Open http://localhost:3000
+```
 
-    ```bash
-    bun dev
-    ```
-
-3. **Open the app:**
-   Navigate to http://localhost:3000
-
-4. **Configure API Keys:**
-    - Go to Configuration page
-    - Add your OpenAI, Bedrock, and/or Deepseek API keys
-    - At least one provider must be configured to run tests
+Configure API keys in the app's Configuration page. At least one provider is required.
 
 ## Usage
 
-### 1. Create Prompts
-
-- Navigate to "Prompts" page
-- Enter a name and the system prompt content
-- Prompts are automatically versioned
-
-### 2. Add Test Cases
-
-- Navigate to "Test Cases" page
-- Select a prompt from the dropdown
-- Add test cases with:
-    - **Input**: The user message to send to the LLM
-    - **Expected Output**: Valid JSON that the LLM should return
-
-### 3. Run Tests
-
-- Navigate to "Run Tests" page
-- Select a prompt with test cases
-- Click "Run Tests"
-- Watch progress bars as tests execute
-- View detailed results with per-LLM scores
-
-### 4. Auto-Improve Prompts
-
-- Navigate to "Auto-Improve" page
-- Select a prompt with test cases
-- Set max iterations (how many improvement attempts)
-- Click "Start Improvement"
-- Watch the log as LLMs analyze failures and suggest improvements
-- Best improvements are automatically saved as new versions
-
-## How It Works
-
-### Test Execution
-
-1. For each test case × LLM combination:
-    - Send the system prompt + test input to the LLM
-    - Parse the response as JSON
-    - Compare against expected output (exact match after normalization)
-    - Repeat 10 times to measure consistency
-2. Calculate scores per LLM and overall
-
-### Auto-Improvement
-
-1. Test the original prompt and record failures
-2. For each iteration:
-    - Send failed test results to all LLMs
-    - Ask each LLM to suggest an improved prompt
-    - Test each suggestion
-    - Keep the best-scoring version
-    - Revert if no improvement found
-3. Save the best version automatically
-
-## API Endpoints
-
-### Configuration
-
-- `GET /api/config` - Get all config (API keys masked)
-- `POST /api/config` - Update API keys
-- `GET /api/config/improvement-prompt` - Get improvement prompt template
-- `PUT /api/config/improvement-prompt` - Update improvement prompt template
-- `GET /api/models` - Get all available models from configured providers
-
-### Prompts
-
-- `GET /api/prompts` - Get latest version of each prompt
-- `POST /api/prompts` - Create a new prompt
-- `GET /api/prompts/:id` - Get a specific prompt by ID
-- `GET /api/prompts/:id/versions` - Get version history for a prompt by ID
-- `DELETE /api/prompts/:id` - Delete a specific prompt version
-- `DELETE /api/prompts/:id/all-versions` - Delete all versions of a prompt (by ID)
-
-### Test Cases
-
-- `GET /api/prompts/:id/test-cases` - Get test cases for a prompt
-- `POST /api/prompts/:id/test-cases` - Create a test case
-- `PUT /api/test-cases/:id` - Update a test case
-- `DELETE /api/test-cases/:id` - Delete a test case
-
-### Test Runs
-
-- `POST /api/test/run` - Start test run (returns jobId)
-- `GET /api/test/status/:jobId` - Poll test progress
-
-### Auto-Improvement
-
-- `POST /api/improve/start` - Start improvement job
-- `GET /api/improve/status/:jobId` - Poll improvement progress
-
-## Project Structure
-
-```
-├── src/
-│   ├── server.ts           # Express server and routes
-│   ├── database.ts         # Database operations
-│   ├── db/
-│   │   ├── index.ts        # Database initialization
-│   │   └── schema.ts       # Drizzle schema
-│   ├── llm-clients/        # LLM provider clients
-│   │   ├── llm-client.ts   # Unified interface
-│   │   ├── openai-client.ts
-│   │   ├── bedrock-client.ts
-│   │   └── deepseek-client.ts
-│   ├── services/
-│   │   ├── test-runner.ts  # Test execution service
-│   │   └── improvement-service.ts
-│   └── utils/
-│       └── json-comparison.ts
-├── public/                 # Frontend files
-│   ├── index.html
-│   ├── prompts.html
-│   ├── test-cases.html
-│   ├── test-runs.html
-│   ├── improve.html
-│   └── styles.css
-├── drizzle/                # Database migrations
-└── data/                   # SQLite database (auto-created)
-```
+1. **Prompts** – Create and version your system prompts
+2. **Test Cases** – Add input/expected output pairs (JSON) for each prompt
+3. **Test Runs** – Execute tests and view per-model scores
+4. **Auto-Improve** – Let LLMs iteratively refine prompts based on failures
 
 ## Development
 
 ```bash
-bun dev
-bun run build
-bun start
-bun run format
-bun run db:generate
-bun run db:studio
+bun dev              # Backend with hot reload
+bun dev:frontend     # Frontend dev server
+bun run build        # Build frontend + backend
+bun run lint         # Lint backend
+bun run test         # Unit tests
+bun run test:e2e     # E2E tests (Playwright)
+bun run format       # Format code
+bun run db:studio    # Drizzle Studio
+```
+
+## Project Structure
+
+```
+├── src/                    # Backend (Express + Bun)
+│   ├── server.ts           # API routes
+│   ├── db/                  # Drizzle schema & init
+│   ├── llm-clients/        # Provider clients
+│   └── services/           # Test runner & improvement
+├── frontend/               # SvelteKit app
+│   └── src/
+│       ├── lib/            # Components & stores
+│       └── routes/         # Pages
+├── drizzle/                # Database migrations
+└── data/                   # SQLite database
 ```
 
 ## License
