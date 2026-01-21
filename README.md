@@ -18,13 +18,16 @@ This tool is aimed at agentic use-cases for large production applications that r
 # Install dependencies
 bun install
 
+# Copy environment variables and configure following the instruction if needed
+cp .env.example .env
+
 # Start development server
 bun dev
 
 # Open http://localhost:3000
 ```
 
-Configure API keys in the app's Configuration page. At least one provider is required.
+Configure API keys in `.env` or via the app's Configuration page. At least one LLM provider is required to run tests.
 
 ## Usage
 

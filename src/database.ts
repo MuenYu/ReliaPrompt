@@ -44,7 +44,30 @@ export function getAllConfig(): Record<string, string> {
 }
 
 export function initializeDefaultConfigs(): void {
-    // Reserved for future default config initialization
+    // Load API keys from environment variables if not already set in database
+    // This allows users to configure via .env file
+    const envToConfigMap: Record<string, string> = {
+        OPENAI_API_KEY: "openai_api_key",
+        DEEPSEEK_API_KEY: "deepseek_api_key",
+        GEMINI_API_KEY: "gemini_api_key",
+        GROQ_API_KEY: "groq_api_key",
+        OPENROUTER_API_KEY: "openrouter_api_key",
+        BEDROCK_ACCESS_KEY_ID: "bedrock_access_key_id",
+        BEDROCK_SECRET_ACCESS_KEY: "bedrock_secret_access_key",
+        BEDROCK_SESSION_TOKEN: "bedrock_session_token",
+        BEDROCK_REGION: "bedrock_region",
+    };
+
+    for (const [envKey, configKey] of Object.entries(envToConfigMap)) {
+        const envValue = process.env[envKey];
+        if (envValue) {
+            // Only set if not already configured in database (don't override user's UI settings)
+            const existingValue = getConfig(configKey);
+            if (!existingValue) {
+                setConfig(configKey, envValue);
+            }
+        }
+    }
 }
 
 export function createPrompt(
