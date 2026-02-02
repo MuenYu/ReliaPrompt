@@ -129,7 +129,7 @@ export interface TestCaseResult {
 export interface TestRun {
     score: number;
     isCorrect: boolean;
-    actualOutput?: string;
+    actualOutput?: unknown;
     error?: string;
     durationMs?: number;
     expectedFound?: number;

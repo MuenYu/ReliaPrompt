@@ -170,18 +170,34 @@
         return div.innerHTML;
     }
 
-    function formatJSON(json: string): string {
+    function formatJSON(value: unknown): string {
+        if (value === null || value === undefined) return "N/A";
+        if (typeof value === "string") {
+            try {
+                return JSON.stringify(JSON.parse(value), null, 2);
+            } catch {
+                return value;
+            }
+        }
         try {
-            return JSON.stringify(JSON.parse(json), null, 2);
+            return JSON.stringify(value, null, 2);
         } catch {
-            return json;
+            return String(value);
         }
     }
 
-    function getSampleOutput(runs: Array<{ actualOutput?: string; error?: string }>): string {
+    function formatOutput(value: unknown): string {
+        return formatJSON(value);
+    }
+
+    function getSampleOutput(runs: Array<{ actualOutput?: unknown; error?: string }>): string {
         if (!runs || runs.length === 0) return "N/A";
-        const firstWithOutput = runs.find((run) => run.actualOutput) || runs[0];
-        return firstWithOutput.actualOutput || (firstWithOutput.error ? `Error: ${firstWithOutput.error}` : "N/A");
+        const firstWithOutput =
+            runs.find((run) => run.actualOutput !== undefined && run.actualOutput !== null) || runs[0];
+        return formatOutput(
+            firstWithOutput.actualOutput ??
+                (firstWithOutput.error ? `Error: ${firstWithOutput.error}` : "N/A")
+        );
     }
 
     const canRun = $derived(testCaseCount > 0 && $selectedModels.length > 0 && !running);
@@ -387,7 +403,7 @@
                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Input:</strong></div>
                 <div class="json-preview">{tc.input.substring(0, 200)}{tc.input.length > 200 ? "..." : ""}</div>
                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Output:</strong></div>
-                <div class="json-preview">{formatJSON(getSampleOutput(tc.runs))}</div>
+                <div class="json-preview">{getSampleOutput(tc.runs)}</div>
 
                 {#if !showAllRuns && tc.runs && tc.runs.length > 0}
                     <div style="margin-top: 12px;">
@@ -427,7 +443,7 @@
                                 <div style="margin-top: 6px;">
                                     <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Actual Output:</div>
                                     <div class="json-preview" style="font-size: 13px; max-height: 150px; overflow-y: auto;">
-                                        {run.actualOutput || (run.error ? `Error: ${run.error}` : "N/A")}
+                                        {formatOutput(run.actualOutput ?? (run.error ? `Error: ${run.error}` : "N/A"))}
                                     </div>
                                 </div>
                             </div>

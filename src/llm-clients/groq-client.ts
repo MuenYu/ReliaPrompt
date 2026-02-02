@@ -63,8 +63,9 @@ export class GroqClient implements LLMClient {
         messages: Array<{ role: "system" | "user"; content: string }>,
         temperature: number,
         modelId: string,
+        outputSchema?: unknown,
         defaultValue: string = ""
-    ): Promise<string> {
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         const apiKey = this.getApiKey();
         if (!apiKey) {
             throw new ConfigurationError("Groq API key not configured");
@@ -76,8 +77,10 @@ export class GroqClient implements LLMClient {
             messages,
             temperature,
             max_tokens: 4096,
-            response_format: { type: "json_object" },
         };
+        if (outputSchema) {
+            requestBody.response_format = { type: "json_object" };
+        }
 
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
             method: "POST",
@@ -96,10 +99,23 @@ export class GroqClient implements LLMClient {
         const data = (await response.json()) as {
             choices?: Array<{ message?: { content?: string } }>;
         };
-        return data.choices?.[0]?.message?.content ?? defaultValue;
+        const content = data.choices?.[0]?.message?.content ?? defaultValue;
+        if (!outputSchema) {
+            return content;
+        }
+        try {
+            return JSON.parse(content) as Record<string, unknown> | Array<unknown>;
+        } catch {
+            throw new LLMError("Groq", "Failed to parse JSON response");
+        }
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
+    async complete(
+        systemPrompt: string,
+        userMessage: string,
+        modelId: string,
+        outputSchema?: unknown
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
@@ -107,6 +123,7 @@ export class GroqClient implements LLMClient {
             ],
             0.1,
             modelId,
+            outputSchema,
             ""
         );
     }

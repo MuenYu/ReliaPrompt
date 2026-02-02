@@ -65,7 +65,7 @@ export interface TestCaseResult {
  * Used by RunResult, TestResultSummary, and database TestResult.
  */
 export interface BaseTestResult {
-    actualOutput: string | null;
+    actualOutput: unknown | null;
     isCorrect: boolean;
     score: number; // 0-1 score
     expectedFound: number;
@@ -77,6 +77,21 @@ export interface BaseTestResult {
 
 export interface RunResult extends BaseTestResult {
     runNumber: number;
+}
+
+function serializeOutput(output: unknown): string | null {
+    if (output === null || output === undefined) {
+        return null;
+    }
+    if (typeof output === "string") {
+        return output;
+    }
+    try {
+        const json = JSON.stringify(output);
+        return json ?? String(output);
+    } catch {
+        return String(output);
+    }
 }
 
 const activeJobs = new Map<string, TestProgress>();
@@ -251,6 +266,8 @@ export async function runTests(
                         runner.modelId,
                         outputSchema
                     );
+                    const normalizedOutput = actualOutput === undefined ? null : actualOutput;
+                    const serializedOutput = serializeOutput(normalizedOutput);
                     const durationMs = Date.now() - startTime;
                     const isCorrect = true;
                     if (isCorrect) {
@@ -262,7 +279,7 @@ export async function runTests(
 
                     runs.push({
                         runNumber,
-                        actualOutput,
+                        actualOutput: normalizedOutput,
                         isCorrect,
                         score: 1,
                         expectedFound: 0,
@@ -278,7 +295,7 @@ export async function runTests(
                             testCase.id,
                             runner.displayName,
                             runNumber,
-                            actualOutput,
+                            serializedOutput,
                             isCorrect,
                             1,
                             0,
@@ -409,7 +426,7 @@ export async function runTests(
 export function getTestResultSummary(results: LLMTestResult[]) {
     const summary: Array<{
         input: string;
-        actualOutput: string | null;
+        actualOutput: unknown | null;
         isCorrect: boolean;
         score: number;
         expectedFound: number;
@@ -422,7 +439,7 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         {
             input: string;
             outputs: Array<{
-                output: string | null;
+                output: unknown | null;
                 isCorrect: boolean;
                 score: number;
                 expectedFound: number;
@@ -506,7 +523,7 @@ export function runResultToDbTestResult(
         testCaseId,
         llmProvider,
         runNumber: runResult.runNumber,
-        actualOutput: runResult.actualOutput,
+        actualOutput: serializeOutput(runResult.actualOutput),
         isCorrect: runResult.isCorrect ? 1 : 0,
         score: runResult.score,
         expectedFound: runResult.expectedFound,

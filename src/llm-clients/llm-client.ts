@@ -4,6 +4,8 @@ export interface ModelInfo {
     provider: string;
 }
 
+export type LLMOutput = string | Record<string, unknown> | Array<unknown>;
+
 export interface LLMClient {
     name: string;
     isConfigured(): boolean;
@@ -13,7 +15,7 @@ export interface LLMClient {
         userMessage: string,
         modelId: string,
         outputSchema?: unknown
-    ): Promise<string>;
+    ): Promise<LLMOutput>;
 }
 
 let activeClients: LLMClient[] = [];

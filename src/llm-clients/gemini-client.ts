@@ -85,8 +85,9 @@ export class GeminiClient implements LLMClient {
     private async makeRequest(
         contents: GeminiContent[],
         modelId: string,
+        outputSchema?: unknown,
         defaultValue: string = ""
-    ): Promise<string> {
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         const apiKey = this.getApiKey();
         if (!apiKey) {
             throw new ConfigurationError("Gemini API key not configured");
@@ -98,8 +99,10 @@ export class GeminiClient implements LLMClient {
         // Build generation config
         const generationConfig: Record<string, unknown> = {
             maxOutputTokens: 4096,
-            responseMimeType: "application/json",
         };
+        if (outputSchema) {
+            generationConfig.responseMimeType = "application/json";
+        }
 
         const response = await fetch(`${this.baseUrl}/${modelPath}:generateContent?key=${apiKey}`, {
             method: "POST",
@@ -118,10 +121,23 @@ export class GeminiClient implements LLMClient {
         }
 
         const data = (await response.json()) as GeminiResponse;
-        return data.candidates?.[0]?.content?.parts?.[0]?.text ?? defaultValue;
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? defaultValue;
+        if (!outputSchema) {
+            return content;
+        }
+        try {
+            return JSON.parse(content) as Record<string, unknown> | Array<unknown>;
+        } catch {
+            throw new LLMError("Gemini", "Failed to parse JSON response");
+        }
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
+    async complete(
+        systemPrompt: string,
+        userMessage: string,
+        modelId: string,
+        outputSchema?: unknown
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         const combinedMessage = systemPrompt
             ? `${systemPrompt}\n\n---\n\n${userMessage}`
             : userMessage;
@@ -134,6 +150,7 @@ export class GeminiClient implements LLMClient {
                 },
             ],
             modelId,
+            outputSchema,
             ""
         );
     }

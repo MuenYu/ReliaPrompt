@@ -77,7 +77,7 @@ export class OpenAIClient implements LLMClient {
         modelId: string,
         outputSchema?: unknown,
         defaultValue: string = ""
-    ): Promise<string> {
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         const client = this.getClient();
         if (!client) {
             throw new ConfigurationError("OpenAI API key not configured");
@@ -90,7 +90,7 @@ export class OpenAIClient implements LLMClient {
                 schema: jsonSchema(outputSchema as Record<string, unknown>),
                 maxOutputTokens: 4096,
             });
-            return JSON.stringify(response.object ?? {}, null, 2);
+            return (response.object ?? {}) as Record<string, unknown> | Array<unknown>;
         }
 
         const response = await generateText({
@@ -107,7 +107,7 @@ export class OpenAIClient implements LLMClient {
         userMessage: string,
         modelId: string,
         outputSchema?: unknown
-    ): Promise<string> {
+    ): Promise<Record<string, unknown> | Array<unknown> | string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
