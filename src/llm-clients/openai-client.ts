@@ -1,14 +1,15 @@
-import OpenAI from "openai";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
 
 export class OpenAIClient implements LLMClient {
     name = "OpenAI";
-    private client: OpenAI | null = null;
+    private client: ReturnType<typeof createOpenAI> | null = null;
     private cachedApiKey: string | null = null;
 
-    private getClient(): OpenAI | null {
+    private getClient(): ReturnType<typeof createOpenAI> | null {
         if (this.cachedApiKey === null) {
             this.cachedApiKey = getConfig("openai_api_key");
         }
@@ -18,7 +19,7 @@ export class OpenAIClient implements LLMClient {
         }
 
         if (!this.client) {
-            this.client = new OpenAI({ apiKey: this.cachedApiKey });
+            this.client = createOpenAI({ apiKey: this.cachedApiKey });
         }
 
         return this.client;
@@ -38,16 +39,24 @@ export class OpenAIClient implements LLMClient {
     }
 
     async listModels(): Promise<ModelInfo[]> {
-        const client = this.getClient();
-        if (!client) {
-            return [];
-        }
-
         try {
-            const response = await client.models.list();
+            const apiKey = this.cachedApiKey ?? getConfig("openai_api_key");
+            if (!apiKey) return [];
+            this.cachedApiKey = apiKey;
+
+            const response = await fetch("https://api.openai.com/v1/models", {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                },
+            });
+
+            if (!response.ok) return [];
+
+            const data = (await response.json()) as { data?: Array<{ id: string }> };
             const models: ModelInfo[] = [];
 
-            for await (const model of response) {
+            for (const model of data.data ?? []) {
                 if (!model.id.startsWith("gpt-5") || model.id.includes("2025")) continue;
                 models.push({
                     id: model.id,
@@ -73,17 +82,18 @@ export class OpenAIClient implements LLMClient {
             throw new ConfigurationError("OpenAI API key not configured");
         }
 
-        // Build request options
-        const requestOptions: OpenAI.ChatCompletionCreateParams = {
-            model: modelId,
+        const response = await generateText({
+            model: client(modelId),
             messages,
-            max_completion_tokens: 4096,
-            response_format: { type: "json_object" },
-        };
+            maxOutputTokens: 4096,
+            providerOptions: {
+                openai: {
+                    response_format: { type: "json_object" },
+                },
+            },
+        });
 
-        const response = await client.chat.completions.create(requestOptions);
-
-        return response.choices[0]?.message?.content ?? defaultValue;
+        return response.text || defaultValue;
     }
 
     async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {

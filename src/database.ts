@@ -52,10 +52,6 @@ export function initializeDefaultConfigs(): void {
         GEMINI_API_KEY: "gemini_api_key",
         GROQ_API_KEY: "groq_api_key",
         OPENROUTER_API_KEY: "openrouter_api_key",
-        BEDROCK_ACCESS_KEY_ID: "bedrock_access_key_id",
-        BEDROCK_SECRET_ACCESS_KEY: "bedrock_secret_access_key",
-        BEDROCK_SESSION_TOKEN: "bedrock_session_token",
-        BEDROCK_REGION: "bedrock_region",
     };
 
     for (const [envKey, configKey] of Object.entries(envToConfigMap)) {

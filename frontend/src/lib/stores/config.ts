@@ -49,8 +49,6 @@ export function isProviderConfigured(provider: string): boolean {
     switch (provider) {
         case "OpenAI":
             return !!$config.openai_api_key;
-        case "Bedrock":
-            return !!$config.bedrock_access_key_id && !!$config.bedrock_secret_access_key;
         case "Deepseek":
             return !!$config.deepseek_api_key;
         case "Gemini":

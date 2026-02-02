@@ -23,10 +23,6 @@ export const modelSelectionSchema = Joi.object({
 // Config schemas
 export const configBodySchema = Joi.object({
     openai_api_key: Joi.string().allow("").optional(),
-    bedrock_access_key_id: Joi.string().allow("").optional(),
-    bedrock_secret_access_key: Joi.string().allow("").optional(),
-    bedrock_session_token: Joi.string().allow("").optional(),
-    bedrock_region: Joi.string().allow("").optional(),
     cerebras_api_key: Joi.string().allow("").optional(),
     deepseek_api_key: Joi.string().allow("").optional(),
     gemini_api_key: Joi.string().allow("").optional(),
@@ -191,4 +187,3 @@ export const testRunSchema = Joi.object({
         "array.min": "selectedModels must contain at least one model",
     }),
 }).unknown(false);
-

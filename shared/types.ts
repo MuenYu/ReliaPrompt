@@ -57,10 +57,6 @@ export interface SelectedModel {
 
 export interface LLMConfig {
     openai_api_key?: string;
-    bedrock_access_key_id?: string;
-    bedrock_secret_access_key?: string;
-    bedrock_session_token?: string;
-    bedrock_region?: string;
     deepseek_api_key?: string;
     gemini_api_key?: string;
     groq_api_key?: string;

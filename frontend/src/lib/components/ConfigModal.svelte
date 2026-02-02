@@ -8,10 +8,6 @@
 
     let formData = $state({
         openai_api_key: "",
-        bedrock_access_key_id: "",
-        bedrock_secret_access_key: "",
-        bedrock_session_token: "",
-        bedrock_region: "ap-southeast-2",
         cerebras_api_key: "",
         deepseek_api_key: "",
         gemini_api_key: "",
@@ -24,10 +20,6 @@
         if ($config) {
             formData = {
                 openai_api_key: $config.openai_api_key || "",
-                bedrock_access_key_id: $config.bedrock_access_key_id || "",
-                bedrock_secret_access_key: $config.bedrock_secret_access_key || "",
-                bedrock_session_token: $config.bedrock_session_token || "",
-                bedrock_region: $config.bedrock_region || "ap-southeast-2",
                 cerebras_api_key: $config.cerebras_api_key || "",
                 deepseek_api_key: $config.deepseek_api_key || "",
                 gemini_api_key: $config.gemini_api_key || "",
@@ -41,8 +33,6 @@
         switch (provider) {
             case "openai":
                 return !!$config.openai_api_key;
-            case "bedrock":
-                return !!$config.bedrock_access_key_id && !!$config.bedrock_secret_access_key;
             case "cerebras":
                 return !!$config.cerebras_api_key;
             case "deepseek":
@@ -104,54 +94,6 @@
                         selectedModels={$selectedModels}
                         onchange={(models) => handleModelChange("OpenAI", models)}
                         filterProvider="OpenAI"
-                    />
-                </div>
-            {/if}
-        </div>
-
-        <div class="provider-section">
-            <h3>
-                AWS Bedrock
-                <span class="status-badge" class:configured={isConfigured("bedrock")} class:not-configured={!isConfigured("bedrock")}>
-                    {isConfigured("bedrock") ? "Configured" : "Not configured"}
-                </span>
-            </h3>
-            <div class="form-group">
-                <input
-                    type="text"
-                    bind:value={formData.bedrock_access_key_id}
-                    placeholder="Access Key ID (AKIA...)"
-                />
-            </div>
-            <div class="form-group">
-                <input
-                    type="text"
-                    bind:value={formData.bedrock_secret_access_key}
-                    placeholder="Secret Access Key"
-                />
-            </div>
-            <div class="form-group">
-                <input
-                    type="text"
-                    bind:value={formData.bedrock_session_token}
-                    placeholder="Session Token (optional)"
-                />
-            </div>
-            <div class="form-group">
-                <input
-                    type="text"
-                    bind:value={formData.bedrock_region}
-                    placeholder="Region (e.g., ap-southeast-2)"
-                />
-            </div>
-            {#if getModelsForProvider("Bedrock").length > 0}
-                <div class="form-group">
-                    <!-- svelte-ignore a11y_label_has_associated_control -->
-                    <label>Models</label>
-                    <ModelSelector
-                        selectedModels={$selectedModels}
-                        onchange={(models) => handleModelChange("Bedrock", models)}
-                        filterProvider="Bedrock"
                     />
                 </div>
             {/if}

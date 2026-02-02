@@ -83,10 +83,6 @@ app.post("/api/config", validate(configBodySchema), (req, res) => {
     try {
         const {
             openai_api_key,
-            bedrock_access_key_id,
-            bedrock_secret_access_key,
-            bedrock_session_token,
-            bedrock_region,
             cerebras_api_key,
             deepseek_api_key,
             gemini_api_key,
@@ -96,18 +92,6 @@ app.post("/api/config", validate(configBodySchema), (req, res) => {
         } = req.body;
 
         if (openai_api_key !== undefined) setConfig("openai_api_key", openai_api_key);
-        if (bedrock_access_key_id !== undefined) {
-            setConfig("bedrock_access_key_id", bedrock_access_key_id);
-        }
-        if (bedrock_secret_access_key !== undefined) {
-            setConfig("bedrock_secret_access_key", bedrock_secret_access_key);
-        }
-        if (bedrock_session_token !== undefined) {
-            setConfig("bedrock_session_token", bedrock_session_token);
-        }
-        if (bedrock_region !== undefined) {
-            setConfig("bedrock_region", bedrock_region || "ap-southeast-2");
-        }
         if (cerebras_api_key !== undefined) setConfig("cerebras_api_key", cerebras_api_key);
         if (deepseek_api_key !== undefined) setConfig("deepseek_api_key", deepseek_api_key);
         if (gemini_api_key !== undefined) setConfig("gemini_api_key", gemini_api_key);

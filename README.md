@@ -7,7 +7,7 @@ This tool is aimed at agentic use-cases for large production applications that r
 
 ## Features
 
-- **Multi-Provider Testing** – OpenAI, Bedrock, DeepSeek, Gemini, Groq, OpenRouter
+- **Multi-Provider Testing** – OpenAI, DeepSeek, Gemini, Groq, OpenRouter
 - **Parallel Execution** – Run tests concurrently across all configured LLMs
 - **Repeatability** – Each test runs N times per model to measure consistency
 - **Version Control** – Full prompt history with easy rollback

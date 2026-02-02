@@ -1,14 +1,15 @@
-import { OpenRouter } from "@openrouter/sdk";
+import { generateText } from "ai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
 
 export class OpenRouterClient implements LLMClient {
     name = "OpenRouter";
-    private client: OpenRouter | null = null;
+    private client: ReturnType<typeof createOpenRouter> | null = null;
     private cachedApiKey: string | null = null;
 
-    private getClient(): OpenRouter | null {
+    private getClient(): ReturnType<typeof createOpenRouter> | null {
         if (this.cachedApiKey === null) {
             this.cachedApiKey = getConfig("openrouter_api_key");
         }
@@ -18,7 +19,7 @@ export class OpenRouterClient implements LLMClient {
         }
 
         if (!this.client) {
-            this.client = new OpenRouter({
+            this.client = createOpenRouter({
                 apiKey: this.cachedApiKey,
             });
         }
@@ -40,16 +41,24 @@ export class OpenRouterClient implements LLMClient {
     }
 
     async listModels(): Promise<ModelInfo[]> {
-        const client = this.getClient();
-        if (!client) {
-            return [];
-        }
-
         try {
-            const response = await client.models.list();
+            const apiKey = this.cachedApiKey ?? getConfig("openrouter_api_key");
+            if (!apiKey) return [];
+            this.cachedApiKey = apiKey;
+
+            const response = await fetch("https://openrouter.ai/api/v1/models", {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                },
+            });
+
+            if (!response.ok) return [];
+
+            const data = (await response.json()) as { data?: Array<{ id: string }> };
             const models: ModelInfo[] = [];
 
-            for (const model of response.data) {
+            for (const model of data.data ?? []) {
                 if (
                     ![
                         "google/gemini-2.5-flash",
@@ -88,18 +97,19 @@ export class OpenRouterClient implements LLMClient {
             throw new ConfigurationError("OpenRouter API key not configured");
         }
 
-        const response = await client.chat.send({
-            model: modelId,
+        const response = await generateText({
+            model: client(modelId),
             messages,
             temperature,
-            maxCompletionTokens: 4096,
+            maxOutputTokens: 4096,
+            providerOptions: {
+                openrouter: {
+                    response_format: { type: "json_object" },
+                },
+            },
         });
 
-        const content = response.choices[0]?.message?.content;
-        if (typeof content === "string") {
-            return content;
-        }
-        return defaultValue;
+        return response.text || defaultValue;
     }
 
     async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {

@@ -1,6 +1,5 @@
 export * from "./llm-client";
 export { openaiClient } from "./openai-client";
-export { bedrockClient } from "./bedrock-client";
 export { cerebrasClient } from "./cerebras-client";
 export { deepseekClient } from "./deepseek-client";
 export { geminiClient } from "./gemini-client";
@@ -9,7 +8,6 @@ export { openrouterClient } from "./openrouter-client";
 
 import { LLMClient, setActiveClients } from "./llm-client";
 import { openaiClient } from "./openai-client";
-import { bedrockClient } from "./bedrock-client";
 import { cerebrasClient } from "./cerebras-client";
 import { deepseekClient } from "./deepseek-client";
 import { geminiClient } from "./gemini-client";
@@ -18,7 +16,6 @@ import { openrouterClient } from "./openrouter-client";
 
 const allClients: LLMClient[] = [
     openaiClient,
-    bedrockClient,
     cerebrasClient,
     deepseekClient,
     geminiClient,
@@ -29,7 +26,6 @@ setActiveClients(allClients);
 
 export function refreshClients(): void {
     openaiClient.reset();
-    bedrockClient.reset();
     geminiClient.reset();
     openrouterClient.reset();
     setActiveClients(allClients);
