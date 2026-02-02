@@ -1,11 +1,13 @@
-import Joi from "joi";
+import { z } from "zod";
 import { ConfigurationError } from "../errors";
 
-const envSchema = Joi.object({
-    NODE_ENV: Joi.string().valid("dev", "prod", "test").required().messages({
-        "any.required": "NODE_ENV environment variable is required",
-    }),
-}).unknown(true); // Allow other environment variables
+const envSchema = z
+    .object({
+        NODE_ENV: z.enum(["dev", "prod", "test"], {
+            message: "NODE_ENV environment variable is required",
+        }),
+    })
+    .passthrough(); // Allow other environment variables
 export interface ValidatedEnv {
     PORT: number;
     SCHEMA_PATH: string;
@@ -24,25 +26,29 @@ export function validateEnv(): ValidatedEnv {
         return validatedEnv;
     }
 
-    const { error, value } = envSchema.validate(process.env, {
-        abortEarly: false,
-        stripUnknown: false,
-        convert: true,
-    });
+    const result = envSchema.safeParse(process.env);
 
-    if (error) {
-        const errorMessages = error.details.map((detail) => detail.message).join(", ");
+    if (!result.success) {
+        const errorMessages = result.error.issues.map((issue) => issue.message).join(", ");
         throw new ConfigurationError(`Environment variable validation failed: ${errorMessages}`);
     }
 
-    validatedEnv = {
-        PORT: value.PORT ?? 3000,
+    const portValue = result.data.PORT;
+    const parsedPort =
+        typeof portValue === "string"
+            ? Number(portValue)
+            : typeof portValue === "number"
+              ? portValue
+              : Number.NaN;
+    const resolvedEnv: ValidatedEnv = {
+        PORT: Number.isFinite(parsedPort) ? parsedPort : 3000,
         SCHEMA_PATH: `./src/db/schema.ts`,
-        DATABASE_PATH: `./data/${value.NODE_ENV}.db`,
+        DATABASE_PATH: `./data/${result.data.NODE_ENV}.db`,
         MIGRATIONS_PATH: `./drizzle`,
     };
+    validatedEnv = resolvedEnv;
 
-    return validatedEnv;
+    return resolvedEnv;
 }
 
 /**

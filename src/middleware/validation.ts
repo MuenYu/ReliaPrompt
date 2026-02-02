@@ -1,26 +1,19 @@
 import { Request, Response, NextFunction } from "express";
-import Joi from "joi";
+import { z } from "zod";
 
 /**
- * Validation middleware factory that validates request data using Joi schemas
- * @param schema - Joi schema to validate against
+ * Validation middleware factory that validates request data using Zod schemas
+ * @param schema - Zod schema to validate against
  * @param source - Where to get the data from: 'body', 'params', or 'query'
  */
-export function validate(
-    schema: Joi.ObjectSchema | Joi.ArraySchema,
-    source: "body" | "params" | "query" = "body"
-) {
+export function validate(schema: z.ZodTypeAny, source: "body" | "params" | "query" = "body") {
     return (req: Request, res: Response, next: NextFunction) => {
         const data = source === "body" ? req.body : source === "params" ? req.params : req.query;
 
-        const { error, value } = schema.validate(data, {
-            abortEarly: false,
-            stripUnknown: true,
-            convert: true,
-        });
+        const result = schema.safeParse(data);
 
-        if (error) {
-            const errorMessages = error.details.map((detail) => detail.message).join(", ");
+        if (!result.success) {
+            const errorMessages = result.error.issues.map((issue) => issue.message).join(", ");
             return res.status(400).json({
                 error: `Validation error: ${errorMessages}`,
             });
@@ -28,11 +21,11 @@ export function validate(
 
         // Replace the original data with validated and sanitized data
         if (source === "body") {
-            req.body = value;
+            req.body = result.data;
         } else if (source === "params") {
-            req.params = value;
+            req.params = result.data as Request["params"];
         } else {
-            req.query = value;
+            req.query = result.data as Request["query"];
         }
 
         next();
