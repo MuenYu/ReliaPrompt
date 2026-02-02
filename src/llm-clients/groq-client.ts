@@ -1,6 +1,8 @@
+import { generateText, generateObject, jsonSchema } from "ai";
+import { createGroq } from "@ai-sdk/groq";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
-import { ConfigurationError, LLMError } from "../errors";
+import { ConfigurationError } from "../errors";
 
 interface GroqModel {
     id: string;
@@ -16,13 +18,35 @@ interface GroqModelsResponse {
 export class GroqClient implements LLMClient {
     name = "Groq";
     private baseUrl = "https://api.groq.com/openai/v1";
+    private cachedApiKey: string | null = null;
+    private client: ReturnType<typeof createGroq> | null = null;
 
     private getApiKey(): string | null {
-        return getConfig("groq_api_key");
+        if (this.cachedApiKey === null) {
+            this.cachedApiKey = getConfig("groq_api_key");
+        }
+        return this.cachedApiKey;
+    }
+
+    private getClient(): ReturnType<typeof createGroq> | null {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            return null;
+        }
+
+        if (!this.client) {
+            this.client = createGroq({ apiKey });
+        }
+
+        return this.client;
     }
 
     isConfigured(): boolean {
-        return !!this.getApiKey();
+        if (this.cachedApiKey !== null) {
+            return !!this.cachedApiKey;
+        }
+        this.cachedApiKey = getConfig("groq_api_key");
+        return !!this.cachedApiKey;
     }
 
     async listModels(): Promise<ModelInfo[]> {
@@ -66,48 +90,30 @@ export class GroqClient implements LLMClient {
         outputSchema?: unknown,
         defaultValue: string = ""
     ): Promise<Record<string, unknown> | Array<unknown> | string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) {
+        const client = this.getClient();
+        if (!client) {
             throw new ConfigurationError("Groq API key not configured");
         }
 
-        // Build request body
-        const requestBody: Record<string, unknown> = {
-            model: modelId,
+        if (outputSchema) {
+            const response = await generateObject({
+                model: client(modelId),
+                messages,
+                temperature,
+                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                maxOutputTokens: 4096,
+            });
+            return (response.object ?? {}) as Record<string, unknown> | Array<unknown>;
+        }
+
+        const response = await generateText({
+            model: client(modelId),
             messages,
             temperature,
-            max_tokens: 4096,
-        };
-        if (outputSchema) {
-            requestBody.response_format = { type: "json_object" };
-        }
-
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify(requestBody),
+            maxOutputTokens: 4096,
         });
 
-        if (!response.ok) {
-            const error = await response.text();
-            throw new LLMError("Groq", `API error: ${response.status} - ${error}`);
-        }
-
-        const data = (await response.json()) as {
-            choices?: Array<{ message?: { content?: string } }>;
-        };
-        const content = data.choices?.[0]?.message?.content ?? defaultValue;
-        if (!outputSchema) {
-            return content;
-        }
-        try {
-            return JSON.parse(content) as Record<string, unknown> | Array<unknown>;
-        } catch {
-            throw new LLMError("Groq", "Failed to parse JSON response");
-        }
+        return response.text || defaultValue;
     }
 
     async complete(

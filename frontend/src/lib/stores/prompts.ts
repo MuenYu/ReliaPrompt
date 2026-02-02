@@ -46,7 +46,7 @@ export async function loadPrompts(): Promise<void> {
                 return set;
             });
         }
-    } catch (error) {
+    } catch {
         showError("Error loading prompts");
     } finally {
         promptsLoading.set(false);
@@ -59,7 +59,7 @@ export async function loadVersions(groupId: number, promptId: number): Promise<P
         const versions = await api.getPromptVersions(promptId);
         versionsCache.update((cache) => ({ ...cache, [groupId]: versions }));
         return versions;
-    } catch (error) {
+    } catch {
         showError("Error loading prompt versions");
         return [];
     }
@@ -84,7 +84,7 @@ export async function selectPrompt(id: number): Promise<void> {
             set.add(prompt.promptGroupId);
             return set;
         });
-    } catch (error) {
+    } catch {
         showError("Error loading prompt");
     }
 }

@@ -1,6 +1,8 @@
+import { generateText, generateObject, jsonSchema } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
-import { ConfigurationError, LLMError } from "../errors";
+import { ConfigurationError } from "../errors";
 
 interface GeminiModel {
     name: string;
@@ -13,29 +15,30 @@ interface GeminiModelsResponse {
     models: GeminiModel[];
 }
 
-interface GeminiContent {
-    role: string;
-    parts: Array<{ text: string }>;
-}
-
-interface GeminiResponse {
-    candidates?: Array<{
-        content?: {
-            parts?: Array<{ text?: string }>;
-        };
-    }>;
-}
-
 export class GeminiClient implements LLMClient {
     name = "Gemini";
     private baseUrl = "https://generativelanguage.googleapis.com/v1beta";
     private cachedApiKey: string | null = null;
+    private client: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 
     private getApiKey(): string | null {
         if (this.cachedApiKey === null) {
             this.cachedApiKey = getConfig("gemini_api_key");
         }
         return this.cachedApiKey;
+    }
+
+    private getClient(): ReturnType<typeof createGoogleGenerativeAI> | null {
+        const apiKey = this.getApiKey();
+        if (!apiKey) {
+            return null;
+        }
+
+        if (!this.client) {
+            this.client = createGoogleGenerativeAI({ apiKey });
+        }
+
+        return this.client;
     }
 
     isConfigured(): boolean {
@@ -48,6 +51,7 @@ export class GeminiClient implements LLMClient {
 
     reset(): void {
         this.cachedApiKey = null;
+        this.client = null;
     }
 
     async listModels(): Promise<ModelInfo[]> {
@@ -83,53 +87,33 @@ export class GeminiClient implements LLMClient {
     }
 
     private async makeRequest(
-        contents: GeminiContent[],
+        messages: Array<{ role: "system" | "user"; content: string }>,
         modelId: string,
         outputSchema?: unknown,
         defaultValue: string = ""
     ): Promise<Record<string, unknown> | Array<unknown> | string> {
-        const apiKey = this.getApiKey();
-        if (!apiKey) {
+        const client = this.getClient();
+        if (!client) {
             throw new ConfigurationError("Gemini API key not configured");
         }
 
-        // Ensure model ID has proper format
-        const modelPath = modelId.startsWith("models/") ? modelId : `models/${modelId}`;
-
-        // Build generation config
-        const generationConfig: Record<string, unknown> = {
-            maxOutputTokens: 4096,
-        };
         if (outputSchema) {
-            generationConfig.responseMimeType = "application/json";
+            const response = await generateObject({
+                model: client(modelId),
+                messages,
+                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                maxOutputTokens: 4096,
+            });
+            return (response.object ?? {}) as Record<string, unknown> | Array<unknown>;
         }
 
-        const response = await fetch(`${this.baseUrl}/${modelPath}:generateContent?key=${apiKey}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents,
-                generationConfig,
-            }),
+        const response = await generateText({
+            model: client(modelId),
+            messages,
+            maxOutputTokens: 4096,
         });
 
-        if (!response.ok) {
-            const error = await response.text();
-            throw new LLMError("Gemini", `API error: ${response.status} - ${error}`);
-        }
-
-        const data = (await response.json()) as GeminiResponse;
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? defaultValue;
-        if (!outputSchema) {
-            return content;
-        }
-        try {
-            return JSON.parse(content) as Record<string, unknown> | Array<unknown>;
-        } catch {
-            throw new LLMError("Gemini", "Failed to parse JSON response");
-        }
+        return response.text || defaultValue;
     }
 
     async complete(
@@ -138,16 +122,10 @@ export class GeminiClient implements LLMClient {
         modelId: string,
         outputSchema?: unknown
     ): Promise<Record<string, unknown> | Array<unknown> | string> {
-        const combinedMessage = systemPrompt
-            ? `${systemPrompt}\n\n---\n\n${userMessage}`
-            : userMessage;
-
         return this.makeRequest(
             [
-                {
-                    role: "user",
-                    parts: [{ text: combinedMessage }],
-                },
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userMessage },
             ],
             modelId,
             outputSchema,
