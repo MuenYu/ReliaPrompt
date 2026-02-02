@@ -5,12 +5,12 @@ import { test, expect, describe, beforeEach, mock } from "bun:test";
 const mockCreateTestJob = mock(() => {});
 const mockUpdateTestJob = mock(() => {});
 const mockCreateTestResult = mock(() => {});
-const mockGetTestCasesForPrompt = mock(() => []);
+const mockGetTestCasesForPrompt = mock(() => [] as any[]);
 const mockGetPromptByIdOrFail = mock(() => ({}));
 const mockGetConfig = mock(() => null);
 
 // Mock LLM clients module
-const mockGetConfiguredClients = mock(() => []);
+const mockGetConfiguredClients = mock(() => [] as any[]);
 
 // Mock the db module to prevent database initialization errors
 const mockDb = {
@@ -95,12 +95,14 @@ import {
 } from "./test-runner";
 import type { LLMClient } from "../llm-clients/llm-client";
 import type { Prompt, TestCase } from "../database";
-import { ParseType } from "../utils/parse";
 import { ConfigurationError, NotFoundError } from "../errors";
 
 // Create a mock LLM client
 function createMockLLMClient(name: string): LLMClient {
-    const mockComplete = mock(() => Promise.resolve(""));
+    const mockComplete = mock(
+        (_systemPrompt: string, _userMessage: string, _modelId: string, _outputSchema?: unknown) =>
+            Promise.resolve("")
+    );
     return {
         name,
         isConfigured: () => true,
@@ -110,18 +112,11 @@ function createMockLLMClient(name: string): LLMClient {
 }
 
 // Helper to create test cases
-function createTestCase(
-    id: number,
-    input: string,
-    expectedOutput: string,
-    expectedOutputType: string = "string"
-): TestCase {
+function createTestCase(id: number, input: string): TestCase {
     return {
         id,
         promptGroupId: 1,
         input,
-        expectedOutput,
-        expectedOutputType,
         createdAt: new Date().toISOString(),
     };
 }
@@ -132,6 +127,7 @@ function createPrompt(id: number, content: string): Prompt {
         id,
         name: `Test Prompt ${id}`,
         content,
+        expectedSchema: null,
         version: 1,
         parentVersionId: null,
         promptGroupId: id,
@@ -153,12 +149,12 @@ beforeEach(() => {
 
 describe("test-runner", () => {
     describe("runTests", () => {
-        test("should run tests successfully with correct output", async () => {
+        test("should run tests successfully with outputs", async () => {
             const mockClient = createMockLLMClient("test-client");
             mockClient.complete = mock(() => Promise.resolve("hello"));
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -169,38 +165,15 @@ describe("test-runner", () => {
 
             const result = await runTests(prompt, testCases, modelRunners, 1);
 
-            expect(result.score).toBe(1); // Score is 0-1, not 0-100
+            expect(result.score).toBe(1);
             expect(result.results).toHaveLength(1);
             expect(result.results[0].llmName).toBe("test-client (test-model)");
             expect(result.results[0].correctCount).toBe(1);
             expect(result.results[0].totalRuns).toBe(1);
-            expect(result.results[0].score).toBe(1); // Score is 0-1, not 0-100
+            expect(result.results[0].score).toBe(1);
             expect(result.results[0].testCaseResults).toHaveLength(1);
             expect(result.results[0].testCaseResults[0].runs[0].isCorrect).toBe(true);
             expect(result.results[0].testCaseResults[0].runs[0].score).toBe(1);
-        });
-
-        test("should handle incorrect output", async () => {
-            const mockClient = createMockLLMClient("test-client");
-            mockClient.complete = mock(() => Promise.resolve("wrong output"));
-
-            const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
-            const modelRunners: ModelRunner[] = [
-                {
-                    client: mockClient,
-                    modelId: "test-model",
-                    displayName: "test-client (test-model)",
-                },
-            ];
-
-            const result = await runTests(prompt, testCases, modelRunners, 1);
-
-            expect(result.score).toBe(0);
-            expect(result.results[0].correctCount).toBe(0);
-            expect(result.results[0].score).toBe(0);
-            expect(result.results[0].testCaseResults[0].runs[0].isCorrect).toBe(false);
-            expect(result.results[0].testCaseResults[0].runs[0].score).toBe(0);
         });
 
         test("should handle LLM errors gracefully", async () => {
@@ -208,7 +181,7 @@ describe("test-runner", () => {
             mockClient.complete = mock(() => Promise.reject(new Error("LLM API error")));
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -239,9 +212,9 @@ describe("test-runner", () => {
 
             const prompt = createPrompt(1, "Test prompt");
             const testCases = [
-                createTestCase(1, "input1", "hello", ParseType.STRING),
-                createTestCase(2, "input2", "world", ParseType.STRING),
-                createTestCase(3, "input3", "test", ParseType.STRING),
+                createTestCase(1, "input1"),
+                createTestCase(2, "input2"),
+                createTestCase(3, "input3"),
             ];
             const modelRunners: ModelRunner[] = [
                 {
@@ -264,7 +237,7 @@ describe("test-runner", () => {
             mockClient.complete = mock(() => Promise.resolve("hello"));
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -289,7 +262,7 @@ describe("test-runner", () => {
             mockClient2.complete = mock(() => Promise.resolve("hello"));
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient1,
@@ -312,18 +285,18 @@ describe("test-runner", () => {
             expect(result.results[1].correctCount).toBe(1);
         });
 
-        test("should calculate average score correctly for partial matches", async () => {
+        test("should calculate average score correctly with errors", async () => {
             const mockClient = createMockLLMClient("test-client");
             let callCount = 0;
             mockClient.complete = mock(() => {
                 callCount++;
-                // First call returns correct, second returns incorrect
+                // First call returns output, second throws error
                 if (callCount === 1) return Promise.resolve("hello");
-                return Promise.resolve("wrong");
+                return Promise.reject(new Error("LLM API error"));
             });
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -340,46 +313,6 @@ describe("test-runner", () => {
             expect(result.results[0].testCaseResults[0].averageScore).toBe(0.5); // Average of 1 and 0
         });
 
-        test("should handle ARRAY parse type", async () => {
-            const mockClient = createMockLLMClient("test-client");
-            mockClient.complete = mock(() => Promise.resolve('["apple", "banana"]'));
-
-            const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", '["apple", "banana"]', ParseType.ARRAY)];
-            const modelRunners: ModelRunner[] = [
-                {
-                    client: mockClient,
-                    modelId: "test-model",
-                    displayName: "test-client (test-model)",
-                },
-            ];
-
-            const result = await runTests(prompt, testCases, modelRunners, 1);
-
-            expect(result.results[0].correctCount).toBe(1);
-            expect(result.results[0].testCaseResults[0].runs[0].isCorrect).toBe(true);
-        });
-
-        test("should handle OBJECT parse type", async () => {
-            const mockClient = createMockLLMClient("test-client");
-            mockClient.complete = mock(() => Promise.resolve('{"key": "value"}'));
-
-            const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", '{"key": "value"}', ParseType.OBJECT)];
-            const modelRunners: ModelRunner[] = [
-                {
-                    client: mockClient,
-                    modelId: "test-model",
-                    displayName: "test-client (test-model)",
-                },
-            ];
-
-            const result = await runTests(prompt, testCases, modelRunners, 1);
-
-            expect(result.results[0].correctCount).toBe(1);
-            expect(result.results[0].testCaseResults[0].runs[0].isCorrect).toBe(true);
-        });
-
         test("should calculate duration stats", async () => {
             const mockClient = createMockLLMClient("test-client");
             mockClient.complete = mock(async () => {
@@ -389,7 +322,7 @@ describe("test-runner", () => {
             });
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -406,66 +339,11 @@ describe("test-runner", () => {
             expect(result.results[0].durationStats!.avgMs).toBeGreaterThan(0);
         });
 
-        test("should handle partial array matches", async () => {
-            const mockClient = createMockLLMClient("test-client");
-            mockClient.complete = mock(
-                () => Promise.resolve('["apple"]') // Only one item, expected two
-            );
-
-            const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", '["apple", "banana"]', ParseType.ARRAY)];
-            const modelRunners: ModelRunner[] = [
-                {
-                    client: mockClient,
-                    modelId: "test-model",
-                    displayName: "test-client (test-model)",
-                },
-            ];
-
-            const result = await runTests(prompt, testCases, modelRunners, 1);
-
-            expect(result.results[0].correctCount).toBe(0);
-            expect(result.results[0].testCaseResults[0].runs[0].score).toBeCloseTo(0.5, 1); // 1/2 = 0.5
-            expect(result.results[0].testCaseResults[0].runs[0].expectedFound).toBe(1);
-            expect(result.results[0].testCaseResults[0].runs[0].expectedTotal).toBe(2);
-        });
-
-        test("should handle partial object matches", async () => {
-            const mockClient = createMockLLMClient("test-client");
-            mockClient.complete = mock(
-                () => Promise.resolve('{"key1": "value1"}') // Missing key2
-            );
-
-            const prompt = createPrompt(1, "Test prompt");
-            const testCases = [
-                createTestCase(
-                    1,
-                    "input1",
-                    '{"key1": "value1", "key2": "value2"}',
-                    ParseType.OBJECT
-                ),
-            ];
-            const modelRunners: ModelRunner[] = [
-                {
-                    client: mockClient,
-                    modelId: "test-model",
-                    displayName: "test-client (test-model)",
-                },
-            ];
-
-            const result = await runTests(prompt, testCases, modelRunners, 1);
-
-            expect(result.results[0].correctCount).toBe(0);
-            expect(result.results[0].testCaseResults[0].runs[0].score).toBeCloseTo(0.5, 1); // 1/2 = 0.5
-            expect(result.results[0].testCaseResults[0].runs[0].expectedFound).toBe(1);
-            expect(result.results[0].testCaseResults[0].runs[0].expectedTotal).toBe(2);
-        });
-
         test("should accept string prompt instead of Prompt object", async () => {
             const mockClient = createMockLLMClient("test-client");
             mockClient.complete = mock(() => Promise.resolve("hello"));
 
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -480,7 +358,8 @@ describe("test-runner", () => {
             expect(mockClient.complete).toHaveBeenCalledWith(
                 "Test prompt string",
                 "input1",
-                "test-model"
+                "test-model",
+                undefined
             );
         });
 
@@ -489,7 +368,7 @@ describe("test-runner", () => {
             mockClient.complete = mock(() => Promise.resolve("hello"));
 
             const prompt = createPrompt(1, "Test prompt");
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             const modelRunners: ModelRunner[] = [
                 {
                     client: mockClient,
@@ -523,7 +402,6 @@ describe("test-runner", () => {
                         {
                             testCaseId: 1,
                             input: "input1",
-                            expectedOutput: "hello",
                             runs: [
                                 {
                                     runNumber: 1,
@@ -559,7 +437,6 @@ describe("test-runner", () => {
                         {
                             testCaseId: 1,
                             input: "input1",
-                            expectedOutput: "hello",
                             runs: [
                                 {
                                     runNumber: 1,
@@ -595,7 +472,6 @@ describe("test-runner", () => {
                         {
                             testCaseId: 1,
                             input: "input1",
-                            expectedOutput: "hello",
                             runs: [
                                 {
                                     runNumber: 1,
@@ -640,7 +516,6 @@ describe("test-runner", () => {
                         {
                             testCaseId: 1,
                             input: "input1",
-                            expectedOutput: "hello",
                             runs: [
                                 {
                                     runNumber: 1,
@@ -658,7 +533,6 @@ describe("test-runner", () => {
                         {
                             testCaseId: 2,
                             input: "input2",
-                            expectedOutput: "world",
                             runs: [
                                 {
                                     runNumber: 1,
@@ -693,7 +567,7 @@ describe("test-runner", () => {
             const prompt = createPrompt(1, "Test prompt");
             mockGetPromptByIdOrFail.mockReturnValue(prompt);
 
-            const testCases = [createTestCase(1, "input1", "hello", ParseType.STRING)];
+            const testCases = [createTestCase(1, "input1")];
             mockGetTestCasesForPrompt.mockReturnValue(testCases);
 
             const selectedModels = [{ provider: "test-client", modelId: "test-model" }];
@@ -732,9 +606,7 @@ describe("test-runner", () => {
         test("should throw error when no models are configured", async () => {
             const prompt = createPrompt(1, "Test prompt");
             mockGetPromptByIdOrFail.mockReturnValue(prompt);
-            mockGetTestCasesForPrompt.mockReturnValue([
-                createTestCase(1, "input1", "hello", ParseType.STRING),
-            ]);
+            mockGetTestCasesForPrompt.mockReturnValue([createTestCase(1, "input1")]);
             mockGetConfiguredClients.mockReturnValue([]);
             mockGetConfig.mockReturnValue(null);
 

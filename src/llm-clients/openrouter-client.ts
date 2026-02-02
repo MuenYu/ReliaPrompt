@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, generateObject, jsonSchema } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
@@ -90,6 +90,7 @@ export class OpenRouterClient implements LLMClient {
         messages: Array<{ role: "system" | "user"; content: string }>,
         modelId: string,
         temperature: number,
+        outputSchema?: unknown,
         defaultValue: string = ""
     ): Promise<string> {
         const client = this.getClient();
@@ -97,29 +98,41 @@ export class OpenRouterClient implements LLMClient {
             throw new ConfigurationError("OpenRouter API key not configured");
         }
 
+        if (outputSchema) {
+            const response = await generateObject({
+                model: client(modelId),
+                messages,
+                temperature,
+                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                maxOutputTokens: 4096,
+            });
+            return JSON.stringify(response.object ?? {}, null, 2);
+        }
+
         const response = await generateText({
             model: client(modelId),
             messages,
             temperature,
             maxOutputTokens: 4096,
-            providerOptions: {
-                openrouter: {
-                    response_format: { type: "json_object" },
-                },
-            },
         });
 
         return response.text || defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
+    async complete(
+        systemPrompt: string,
+        userMessage: string,
+        modelId: string,
+        outputSchema?: unknown
+    ): Promise<string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
             modelId,
-            0.1
+            0.1,
+            outputSchema
         );
     }
 }

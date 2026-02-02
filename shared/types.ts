@@ -57,6 +57,7 @@ export interface SelectedModel {
 
 export interface LLMConfig {
     openai_api_key?: string;
+    cerebras_api_key?: string;
     deepseek_api_key?: string;
     gemini_api_key?: string;
     groq_api_key?: string;
@@ -68,27 +69,19 @@ export interface LLMConfig {
 // Test Case Types
 // ============================================
 
-export type ExpectedOutputType = "string" | "array" | "object";
-
 export interface TestCase {
     id: number;
     promptGroupId: number;
     input: string;
-    expectedOutput: string;
-    expectedOutputType: ExpectedOutputType;
     createdAt: string;
 }
 
 export interface CreateTestCaseRequest {
     input: string;
-    expected_output: string;
-    expected_output_type: ExpectedOutputType;
 }
 
 export interface UpdateTestCaseRequest {
     input?: string;
-    expected_output?: string;
-    expected_output_type?: ExpectedOutputType;
 }
 
 // ============================================
@@ -129,7 +122,6 @@ export interface DurationStats {
 
 export interface TestCaseResult {
     input: string;
-    expectedOutput: string;
     averageScore: number;
     runs: TestRun[];
 }
@@ -176,6 +168,4 @@ export interface ExportPromptData {
 
 export interface ExportTestCaseData {
     input: string;
-    expected_output: string;
-    expected_output_type: ExpectedOutputType;
 }

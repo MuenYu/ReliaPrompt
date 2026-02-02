@@ -7,6 +7,7 @@ import type {
     TestCase,
     TestJob,
     TestResults,
+    ExportTestCaseData,
 } from "./types";
 
 const BASE_URL = "";
@@ -104,8 +105,6 @@ export async function createTestCase(
     promptId: number,
     data: {
         input: string;
-        expected_output: string;
-        expected_output_type: string;
     }
 ): Promise<TestCase> {
     return fetchJSON<TestCase>(`/api/prompts/${promptId}/test-cases`, {
@@ -118,8 +117,6 @@ export async function updateTestCase(
     id: number,
     data: {
         input: string;
-        expected_output: string;
-        expected_output_type: string;
     }
 ): Promise<TestCase> {
     return fetchJSON<TestCase>(`/api/test-cases/${id}`, {
@@ -132,17 +129,13 @@ export async function deleteTestCase(id: number): Promise<void> {
     await fetchJSON<void>(`/api/test-cases/${id}`, { method: "DELETE" });
 }
 
-export async function exportTestCases(promptId: number): Promise<TestCase[]> {
-    return fetchJSON<TestCase[]>(`/api/prompts/${promptId}/test-cases/export`);
+export async function exportTestCases(promptId: number): Promise<ExportTestCaseData[]> {
+    return fetchJSON<ExportTestCaseData[]>(`/api/prompts/${promptId}/test-cases/export`);
 }
 
 export async function importTestCases(
     promptId: number,
-    testCases: Array<{
-        input: string;
-        expected_output: string;
-        expected_output_type: string;
-    }>
+    testCases: ExportTestCaseData[]
 ): Promise<{ count: number }> {
     return fetchJSON<{ count: number }>(`/api/prompts/${promptId}/test-cases/import`, {
         method: "POST",
@@ -169,4 +162,3 @@ export async function startTestRun(data: {
 export async function getTestStatus(jobId: string): Promise<TestJob & { results?: TestResults }> {
     return fetchJSON<TestJob & { results?: TestResults }>(`/api/test/status/${jobId}`);
 }
-

@@ -27,7 +27,6 @@ import {
 import { refreshClients, getAllAvailableModels } from "./llm-clients";
 import { startTestRun, getTestProgress, TestResults } from "./services/test-runner";
 import { getErrorMessage, getErrorStatusCode, NotFoundError } from "./errors";
-import { parse, ParseType } from "./utils/parse";
 import { validate, validateIdParam } from "./middleware/validation";
 import {
     configBodySchema,
@@ -49,6 +48,18 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+const toTestCaseResponse = (testCase: {
+    id: number;
+    promptGroupId: number;
+    input: string;
+    createdAt: string;
+}) => ({
+    id: testCase.id,
+    promptGroupId: testCase.promptGroupId,
+    input: testCase.input,
+    createdAt: testCase.createdAt,
+});
 
 // Determine static file directory: prefer Svelte build, fall back to legacy public
 const svelteBuildPath = path.join(__dirname, "..", "frontend", "dist");
@@ -248,7 +259,7 @@ app.get("/api/prompts/:id/test-cases", validateIdParam, (req, res) => {
     try {
         const promptId = parseInt(req.params.id, 10);
         const testCases = getTestCasesForPrompt(promptId);
-        res.json(testCases);
+        res.json(testCases.map(toTestCaseResponse));
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
@@ -262,8 +273,6 @@ app.get("/api/prompts/:id/test-cases/export", validateIdParam, (req, res) => {
         // Export format: exclude internal IDs and timestamps
         const exportData = testCases.map((tc) => ({
             input: tc.input,
-            expected_output: tc.expectedOutput,
-            expected_output_type: tc.expectedOutputType,
         }));
 
         res.json(exportData);
@@ -279,27 +288,13 @@ app.post(
     (req, res) => {
         try {
             const promptId = parseInt(req.params.id, 10);
-            const { input, expected_output, expected_output_type } = req.body;
-
-            // Additional validation: ensure expected_output can be parsed with the specified type
-            try {
-                parse(expected_output, expected_output_type as ParseType);
-            } catch {
-                return res.status(400).json({
-                    error: "Validation error: expected_output must be valid JSON matching the expected_output_type",
-                });
-            }
+            const { input } = req.body;
 
             const prompt = getPromptByIdOrFail(promptId);
             const promptGroupId = prompt.promptGroupId ?? promptId;
 
-            const testCase = createTestCase(
-                promptGroupId,
-                input,
-                expected_output,
-                expected_output_type
-            );
-            res.json(testCase);
+            const testCase = createTestCase(promptGroupId, input);
+            res.json(toTestCaseResponse(testCase));
         } catch (error) {
             res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
         }
@@ -309,22 +304,13 @@ app.post(
 app.put("/api/test-cases/:id", validateIdParam, validate(updateTestCaseSchema), (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const { input, expected_output, expected_output_type } = req.body;
+        const { input } = req.body;
 
-        // Additional validation: ensure expected_output can be parsed with the specified type
-        try {
-            parse(expected_output, expected_output_type as ParseType);
-        } catch {
-            return res.status(400).json({
-                error: "Validation error: expected_output must be valid JSON matching the expected_output_type",
-            });
-        }
-
-        const testCase = updateTestCase(id, input, expected_output, expected_output_type);
+        const testCase = updateTestCase(id, input);
         if (!testCase) {
             throw new NotFoundError("Test case", id);
         }
-        res.json(testCase);
+        res.json(toTestCaseResponse(testCase));
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
     }
@@ -349,20 +335,7 @@ app.post(
             const promptId = parseInt(req.params.id, 10);
             const testCasesData = req.body as Array<{
                 input: string;
-                expected_output: string;
-                expected_output_type: string;
             }>;
-
-            // Validate all test cases can be parsed with their specified types
-            for (const tc of testCasesData) {
-                try {
-                    parse(tc.expected_output, tc.expected_output_type as ParseType);
-                } catch {
-                    return res.status(400).json({
-                        error: `Validation error: expected_output for test case "${tc.input.substring(0, 50)}..." must be valid JSON matching the expected_output_type`,
-                    });
-                }
-            }
 
             const prompt = getPromptByIdOrFail(promptId);
             const promptGroupId = prompt.promptGroupId ?? promptId;
@@ -375,8 +348,6 @@ app.post(
                 promptGroupId,
                 testCasesData.map((tc) => ({
                     input: tc.input,
-                    expectedOutput: tc.expected_output,
-                    expectedOutputType: tc.expected_output_type,
                 }))
             );
 

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { ParseType } from "../utils/parse";
 
 const jsonStringSchema = (invalidMessage: string) =>
     z
@@ -23,32 +22,6 @@ const optionalJsonStringSchema = (invalidMessage: string, allowNull = false) =>
         if (typeof value === "string" && value.trim() === "") return undefined;
         return value;
     }, jsonStringSchema(invalidMessage).optional());
-
-const requiredJsonStringSchema = (
-    requiredMessage: string,
-    emptyMessage: string,
-    invalidMessage: string
-) =>
-    z
-        .string({ message: requiredMessage })
-        .trim()
-        .min(1, { message: emptyMessage })
-        .superRefine((value, context) => {
-            try {
-                JSON.parse(value);
-            } catch {
-                context.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: invalidMessage,
-                });
-            }
-        });
-
-const expectedOutputTypeSchema = z
-    .string({ message: "expected_output_type is required" })
-    .refine((value) => Object.values(ParseType).includes(value as ParseType), {
-        message: "expected_output_type must be one of: string, array, object",
-    });
 
 // Common schemas
 export const idParamSchema = z
@@ -100,7 +73,7 @@ export const createPromptSchema = z
             .string({ message: "Content is required" })
             .trim()
             .min(1, { message: "Content cannot be empty" }),
-        expectedSchema: optionalJsonStringSchema("Expected schema must be valid JSON"),
+        expectedSchema: optionalJsonStringSchema("Output structure must be valid JSON"),
         parentVersionId: z.coerce.number().int().positive().optional(),
     })
     .strict();
@@ -112,12 +85,6 @@ export const createTestCaseSchema = z
             .string({ message: "Input is required" })
             .trim()
             .min(1, { message: "Input cannot be empty" }),
-        expected_output: requiredJsonStringSchema(
-            "Expected output is required",
-            "Expected output cannot be empty",
-            "Expected output must be valid JSON"
-        ),
-        expected_output_type: expectedOutputTypeSchema.optional().default(ParseType.ARRAY),
     })
     .strict();
 
@@ -127,12 +94,6 @@ export const updateTestCaseSchema = z
             .string({ message: "Input is required" })
             .trim()
             .min(1, { message: "Input cannot be empty" }),
-        expected_output: requiredJsonStringSchema(
-            "Expected output is required",
-            "Expected output cannot be empty",
-            "Expected output must be valid JSON"
-        ),
-        expected_output_type: expectedOutputTypeSchema,
     })
     .strict();
 

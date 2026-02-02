@@ -26,8 +26,6 @@ export const testCases = sqliteTable(
         id: integer("id").primaryKey({ autoIncrement: true }),
         promptGroupId: integer("prompt_group_id").notNull(),
         input: text("input").notNull(),
-        expectedOutput: text("expected_output").notNull(),
-        expectedOutputType: text("expected_output_type").notNull().default("array"),
         createdAt: text("created_at").notNull(),
     },
     (table) => [index("test_cases_prompt_group_id_idx").on(table.promptGroupId)]

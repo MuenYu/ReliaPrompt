@@ -14,8 +14,6 @@
 
     // Editor form state
     let formInput = $state("");
-    let formExpectedOutput = $state("");
-    let formExpectedOutputType = $state<"string" | "array" | "object">("array");
     let formError = $state("");
     let saving = $state(false);
 
@@ -23,9 +21,7 @@
     const filteredTestCases = $derived(() => {
         const q = testCaseFilter.trim().toLowerCase();
         if (!q) return testCases;
-        return testCases.filter(
-            (tc) => tc.input.toLowerCase().includes(q) || tc.expectedOutput.toLowerCase().includes(q)
-        );
+        return testCases.filter((tc) => tc.input.toLowerCase().includes(q));
     });
 
     // Load test cases when prompt changes
@@ -56,12 +52,8 @@
 
         if (tc) {
             formInput = tc.input;
-            formExpectedOutput = tc.expectedOutput;
-            formExpectedOutputType = tc.expectedOutputType;
         } else {
             formInput = "";
-            formExpectedOutput = "";
-            formExpectedOutputType = "array";
         }
     }
 
@@ -86,20 +78,9 @@
         if (!$selectedPrompt) return;
 
         const input = formInput.trim();
-        const expectedOutput = formExpectedOutput.trim();
 
         if (!input) {
             formError = "Input is required.";
-            return;
-        }
-        if (!expectedOutput) {
-            formError = "Expected output is required.";
-            return;
-        }
-        try {
-            JSON.parse(expectedOutput);
-        } catch {
-            formError = "Expected output must be valid JSON.";
             return;
         }
 
@@ -109,8 +90,6 @@
         try {
             const data = {
                 input,
-                expected_output: expectedOutput,
-                expected_output_type: formExpectedOutputType,
             };
 
             if (editorMode === "edit" && activeTestCaseId) {
@@ -193,14 +172,8 @@
 
                 for (let i = 0; i < data.length; i++) {
                     const tc = data[i];
-                    if (!tc.input || !tc.expected_output || !tc.expected_output_type) {
+                    if (!tc.input) {
                         showError(`Test case ${i + 1} is missing required fields`);
-                        return;
-                    }
-                    try {
-                        JSON.parse(tc.expected_output);
-                    } catch {
-                        showError(`Test case ${i + 1} has invalid JSON in expected_output`);
                         return;
                     }
                 }
@@ -233,7 +206,7 @@
 <header class="content-header">
     <div class="content-header-main">
         <h1 class="content-title">Test Cases</h1>
-        <p class="content-subtitle">Define inputs and expected JSON outputs. Edit fast with the split view.</p>
+        <p class="content-subtitle">Define inputs for this prompt. Different inputs are different test cases.</p>
     </div>
     <div class="content-actions">
         <button class="btn btn-secondary btn-sm" disabled={!$selectedPrompt} onclick={handleExport}>
@@ -292,7 +265,6 @@
                             >
                                 <div class="tc-list-item-top">
                                     <div class="tc-list-item-title">#{idx + 1}</div>
-                                    <span class="pill pill-muted">{tc.expectedOutputType}</span>
                                 </div>
                                 <div class="tc-list-item-preview">
                                     {tc.input.replace(/\s+/g, " ").slice(0, 120) || "(empty input)"}
@@ -341,24 +313,6 @@
                                     placeholder="What will you send to the LLM?"
                                     bind:value={formInput}
                                 ></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="tc-expected-output">Expected output (JSON)</label>
-                                <textarea
-                                    id="tc-expected-output"
-                                    class="tall"
-                                    placeholder={'[{"type":"company","name":"Microsoft"}]'}
-                                    bind:value={formExpectedOutput}
-                                ></textarea>
-                                <small>Must be valid JSON. We compare structure + values.</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="tc-expected-output-type">Expected output type</label>
-                                <select id="tc-expected-output-type" bind:value={formExpectedOutputType}>
-                                    <option value="string">String</option>
-                                    <option value="array">Array</option>
-                                    <option value="object">Object</option>
-                                </select>
                             </div>
                         </div>
 

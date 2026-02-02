@@ -69,7 +69,7 @@
         }
 
         if (expectedSchema && !validateSchema(expectedSchema)) {
-            showError("Expected output schema must be valid JSON");
+            showError("Output structure must be valid JSON");
             return;
         }
 
@@ -127,13 +127,13 @@
     {#if mode === "view"}
         <div class="form-group">
             <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label>Prompt Content</label>
+            <label>Prompt Content (system)</label>
             <pre class="view-prompt-content">{loadedPrompt?.content || ""}</pre>
         </div>
         {#if loadedPrompt?.expectedSchema}
             <div class="form-group">
                 <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label>Expected Output Schema</label>
+                <label>Output Structure (JSON Schema)</label>
                 <pre class="view-prompt-content">{formatJSON(loadedPrompt.expectedSchema)}</pre>
             </div>
         {/if}
@@ -152,7 +152,7 @@
                 </div>
             {/if}
             <div class="form-group">
-                <label for="new-prompt-content">Prompt Content</label>
+                    <label for="new-prompt-content">Prompt Content (system)</label>
                 <textarea
                     id="new-prompt-content"
                     class="tall"
@@ -165,14 +165,14 @@
                 {/if}
             </div>
             <div class="form-group">
-                <label for="prompt-schema">Expected Output Schema (JSON)</label>
+                <label for="prompt-schema">Output Structure (JSON Schema)</label>
                 <textarea
                     id="prompt-schema"
                     class="medium"
                     bind:value={expectedSchema}
                     placeholder={'{"type": "array", "items": {"type": "object", "properties": {"name": {"type": "string"}}}}'}
                 ></textarea>
-                <small>Optional. JSON Schema for structured LLM output (used with response_format).</small>
+                <small>Optional. When set, responses are generated as structured objects.</small>
             </div>
         </form>
     {/if}

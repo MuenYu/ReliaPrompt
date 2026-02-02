@@ -238,12 +238,7 @@ export function getPromptVersionsByGroupId(groupId: number): Prompt[] {
         .all();
 }
 
-export function createTestCase(
-    promptGroupId: number,
-    input: string,
-    expectedOutput: string,
-    expectedOutputType: string = "array"
-) {
+export function createTestCase(promptGroupId: number, input: string) {
     return withSave(() => {
         const createdAt = new Date().toISOString();
         return getDb()
@@ -251,8 +246,6 @@ export function createTestCase(
             .values({
                 promptGroupId,
                 input,
-                expectedOutput,
-                expectedOutputType,
                 createdAt,
             })
             .returning()
@@ -289,18 +282,9 @@ export function deleteTestCase(id: number): void {
     });
 }
 
-export function updateTestCase(
-    id: number,
-    input: string,
-    expectedOutput: string,
-    expectedOutputType: string
-) {
+export function updateTestCase(id: number, input: string) {
     withSave(() => {
-        getDb()
-            .update(testCases)
-            .set({ input, expectedOutput, expectedOutputType })
-            .where(eq(testCases.id, id))
-            .run();
+        getDb().update(testCases).set({ input }).where(eq(testCases.id, id)).run();
     });
     return getTestCaseById(id);
 }
@@ -313,7 +297,7 @@ export function deleteAllTestCasesForPromptGroup(promptGroupId: number): void {
 
 export function bulkCreateTestCases(
     promptGroupId: number,
-    testCasesData: Array<{ input: string; expectedOutput: string; expectedOutputType: string }>
+    testCasesData: Array<{ input: string }>
 ): TestCase[] {
     return withSave(() => {
         const db = getDb();
@@ -326,8 +310,6 @@ export function bulkCreateTestCases(
                 .values({
                     promptGroupId,
                     input: tc.input,
-                    expectedOutput: tc.expectedOutput,
-                    expectedOutputType: tc.expectedOutputType,
                     createdAt,
                 })
                 .returning()

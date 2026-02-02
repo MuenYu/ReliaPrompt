@@ -6,7 +6,7 @@
     import ModelSelector from "$lib/components/ModelSelector.svelte";
     import ScoreBadge from "$lib/components/ScoreBadge.svelte";
     import Modal from "$lib/components/Modal.svelte";
-    import type { TestCase, TestJob, TestResults, LLMResult, SelectedModel } from "$lib/types";
+    import type { TestJob, TestResults, LLMResult, SelectedModel } from "$lib/types";
     import * as api from "$lib/api";
     import { onMount } from "svelte";
 
@@ -176,6 +176,12 @@
         } catch {
             return json;
         }
+    }
+
+    function getSampleOutput(runs: Array<{ actualOutput?: string; error?: string }>): string {
+        if (!runs || runs.length === 0) return "N/A";
+        const firstWithOutput = runs.find((run) => run.actualOutput) || runs[0];
+        return firstWithOutput.actualOutput || (firstWithOutput.error ? `Error: ${firstWithOutput.error}` : "N/A");
     }
 
     const canRun = $derived(testCaseCount > 0 && $selectedModels.length > 0 && !running);
@@ -380,8 +386,8 @@
                 </div>
                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Input:</strong></div>
                 <div class="json-preview">{tc.input.substring(0, 200)}{tc.input.length > 200 ? "..." : ""}</div>
-                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
-                <div class="json-preview">{formatJSON(tc.expectedOutput)}</div>
+                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Output:</strong></div>
+                <div class="json-preview">{formatJSON(getSampleOutput(tc.runs))}</div>
 
                 {#if !showAllRuns && tc.runs && tc.runs.length > 0}
                     <div style="margin-top: 12px;">

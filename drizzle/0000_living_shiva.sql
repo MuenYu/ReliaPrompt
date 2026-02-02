@@ -20,8 +20,6 @@ CREATE TABLE `test_cases` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`prompt_group_id` integer NOT NULL,
 	`input` text NOT NULL,
-	`expected_output` text NOT NULL,
-	`expected_output_type` text DEFAULT 'array' NOT NULL,
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint

@@ -10,8 +10,6 @@ import {
     TestResult as DbTestResult,
 } from "../database";
 import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
-import { compare } from "../utils/compare";
-import { parse, ParseType } from "../utils/parse";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
 
 // Represents a model to run tests against
@@ -57,7 +55,6 @@ export interface LLMTestResult {
 export interface TestCaseResult {
     testCaseId: number;
     input: string;
-    expectedOutput: string;
     runs: RunResult[];
     correctRuns: number;
     averageScore: number; // Average score across all runs for this test case
@@ -203,27 +200,23 @@ export async function runTests(
     // If expectedSchema not passed explicitly, try to get from prompt object
     const schemaString =
         expectedSchema ?? (typeof prompt === "object" ? prompt.expectedSchema : undefined);
-
-    // Build the system prompt with schema hint if present
-    let systemPrompt = promptContent;
+    let outputSchema: unknown = undefined;
     if (schemaString) {
         try {
             const parsedSchema = JSON.parse(schemaString);
-            // The schema can either be:
-            // 1. A full ResponseSchema object with {name, strict, schema} - extract the inner schema
-            // 2. A raw JSON Schema - use as-is
-            const schema =
-                parsedSchema.schema && typeof parsedSchema.schema === "object"
-                    ? parsedSchema.schema
+            outputSchema =
+                parsedSchema && typeof parsedSchema === "object" && "schema" in parsedSchema
+                    ? (parsedSchema as { schema: unknown }).schema
                     : parsedSchema;
-
-            // Append schema hint to the system prompt
-            systemPrompt = `${promptContent}\n\n## Response Schema:\n${JSON.stringify(schema)}`;
         } catch {
-            // If parsing fails, ignore the schema
-            console.warn("Failed to parse expectedSchema, ignoring structured output");
+            console.warn("Failed to parse output structure, ignoring structured output");
         }
     }
+    if (!outputSchema || typeof outputSchema !== "object") {
+        outputSchema = undefined;
+    }
+
+    const systemPrompt = promptContent;
 
     // Initialize progress tracking if jobId is provided
     if (jobId) {
@@ -255,30 +248,26 @@ export async function runTests(
                     const actualOutput = await runner.client.complete(
                         systemPrompt,
                         testCase.input,
-                        runner.modelId
+                        runner.modelId,
+                        outputSchema
                     );
                     const durationMs = Date.now() - startTime;
-                    const expectedOutputType = testCase.expectedOutputType as ParseType;
-                    const expectedParsed = parse(testCase.expectedOutput, expectedOutputType);
-                    const actualParsed = parse(actualOutput, expectedOutputType);
-                    const comparison = compare(expectedParsed, actualParsed, expectedOutputType);
-
-                    const isCorrect = comparison.score === 1;
+                    const isCorrect = true;
                     if (isCorrect) {
                         correctRuns++;
                         llmCorrectCount++;
                     }
-                    totalScore += comparison.score;
+                    totalScore += 1;
                     llmTotalRuns++;
 
                     runs.push({
                         runNumber,
                         actualOutput,
                         isCorrect,
-                        score: comparison.score,
-                        expectedFound: comparison.expectedFound,
-                        expectedTotal: comparison.expectedTotal,
-                        unexpectedFound: comparison.unexpectedFound,
+                        score: 1,
+                        expectedFound: 0,
+                        expectedTotal: 0,
+                        unexpectedFound: 0,
                         durationMs,
                     });
 
@@ -291,10 +280,10 @@ export async function runTests(
                             runNumber,
                             actualOutput,
                             isCorrect,
-                            comparison.score,
-                            comparison.expectedFound,
-                            comparison.expectedTotal,
-                            comparison.unexpectedFound,
+                            1,
+                            0,
+                            0,
+                            0,
                             durationMs
                         );
                     }
@@ -346,7 +335,6 @@ export async function runTests(
             return {
                 testCaseId: testCase.id,
                 input: testCase.input,
-                expectedOutput: testCase.expectedOutput,
                 runs,
                 correctRuns,
                 averageScore,
@@ -421,7 +409,6 @@ export async function runTests(
 export function getTestResultSummary(results: LLMTestResult[]) {
     const summary: Array<{
         input: string;
-        expectedOutput: string;
         actualOutput: string | null;
         isCorrect: boolean;
         score: number;
@@ -434,7 +421,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
         number,
         {
             input: string;
-            expectedOutput: string;
             outputs: Array<{
                 output: string | null;
                 isCorrect: boolean;
@@ -451,7 +437,6 @@ export function getTestResultSummary(results: LLMTestResult[]) {
             if (!testCaseMap.has(tcResult.testCaseId)) {
                 testCaseMap.set(tcResult.testCaseId, {
                     input: tcResult.input,
-                    expectedOutput: tcResult.expectedOutput,
                     outputs: [],
                 });
             }
@@ -471,32 +456,16 @@ export function getTestResultSummary(results: LLMTestResult[]) {
     }
 
     for (const [, tc] of testCaseMap) {
-        const wrongOutputs = tc.outputs.filter((o) => !o.isCorrect);
-        const anyCorrect = tc.outputs.some((o) => o.isCorrect);
-
-        if (wrongOutputs.length > 0) {
-            const representative = wrongOutputs[0];
+        const errorOutput = tc.outputs.find((o) => !o.isCorrect) ?? tc.outputs[0];
+        if (errorOutput) {
             summary.push({
                 input: tc.input,
-                expectedOutput: tc.expectedOutput,
-                actualOutput: representative.output,
-                isCorrect: false,
-                score: representative.score,
-                expectedFound: representative.expectedFound,
-                expectedTotal: representative.expectedTotal,
-                unexpectedFound: representative.unexpectedFound,
-            });
-        } else if (anyCorrect) {
-            const correct = tc.outputs.find((o) => o.isCorrect)!;
-            summary.push({
-                input: tc.input,
-                expectedOutput: tc.expectedOutput,
-                actualOutput: correct.output,
-                isCorrect: true,
-                score: correct.score,
-                expectedFound: correct.expectedFound,
-                expectedTotal: correct.expectedTotal,
-                unexpectedFound: correct.unexpectedFound,
+                actualOutput: errorOutput.output,
+                isCorrect: errorOutput.isCorrect,
+                score: errorOutput.score,
+                expectedFound: errorOutput.expectedFound,
+                expectedTotal: errorOutput.expectedTotal,
+                unexpectedFound: errorOutput.unexpectedFound,
             });
         }
     }

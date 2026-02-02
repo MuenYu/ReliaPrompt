@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, generateObject, jsonSchema } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
@@ -75,6 +75,7 @@ export class OpenAIClient implements LLMClient {
     private async makeRequest(
         messages: Array<{ role: "system" | "user"; content: string }>,
         modelId: string,
+        outputSchema?: unknown,
         defaultValue: string = ""
     ): Promise<string> {
         const client = this.getClient();
@@ -82,27 +83,38 @@ export class OpenAIClient implements LLMClient {
             throw new ConfigurationError("OpenAI API key not configured");
         }
 
+        if (outputSchema) {
+            const response = await generateObject({
+                model: client(modelId),
+                messages,
+                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                maxOutputTokens: 4096,
+            });
+            return JSON.stringify(response.object ?? {}, null, 2);
+        }
+
         const response = await generateText({
             model: client(modelId),
             messages,
             maxOutputTokens: 4096,
-            providerOptions: {
-                openai: {
-                    response_format: { type: "json_object" },
-                },
-            },
         });
 
         return response.text || defaultValue;
     }
 
-    async complete(systemPrompt: string, userMessage: string, modelId: string): Promise<string> {
+    async complete(
+        systemPrompt: string,
+        userMessage: string,
+        modelId: string,
+        outputSchema?: unknown
+    ): Promise<string> {
         return this.makeRequest(
             [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userMessage },
             ],
             modelId,
+            outputSchema,
             ""
         );
     }

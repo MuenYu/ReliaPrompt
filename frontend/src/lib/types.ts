@@ -7,7 +7,6 @@ export type {
     Model,
     SelectedModel,
     LLMConfig,
-    ExpectedOutputType,
     TestCase,
     CreateTestCaseRequest,
     UpdateTestCaseRequest,
