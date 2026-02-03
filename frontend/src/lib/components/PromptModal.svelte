@@ -86,7 +86,7 @@
                 const result = await createPrompt({
                     name: name.trim(),
                     content: content.trim(),
-                    expectedSchema: expectedSchema.trim() || undefined,
+                    expectedSchema: expectedSchema.trim() ? expectedSchema.trim() : null,
                     evaluationMode,
                     evaluationCriteria:
                         evaluationMode === "llm" ? evaluationCriteria.trim() || undefined : undefined,
@@ -99,7 +99,7 @@
                     promptId,
                     promptName,
                     content.trim(),
-                    expectedSchema.trim() || undefined,
+                    expectedSchema.trim() ? expectedSchema.trim() : null,
                     evaluationMode,
                     evaluationMode === "llm" ? evaluationCriteria.trim() || undefined : undefined
                 );

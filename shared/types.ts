@@ -30,14 +30,14 @@ export interface PromptGroup {
 export interface CreatePromptRequest {
     name: string;
     content: string;
-    expectedSchema?: string;
+    expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
 }
 
 export interface CreateVersionRequest {
     content: string;
-    expectedSchema?: string;
+    expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
 }

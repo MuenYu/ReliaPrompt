@@ -15,13 +15,18 @@ const jsonStringSchema = (invalidMessage: string) =>
             }
         });
 
-const optionalJsonStringSchema = (invalidMessage: string, allowNull = false) =>
-    z.preprocess((value) => {
+const optionalJsonStringSchema = (invalidMessage: string, allowNull = false) => {
+    const baseSchema = allowNull
+        ? z.union([jsonStringSchema(invalidMessage), z.null()]).optional()
+        : jsonStringSchema(invalidMessage).optional();
+
+    return z.preprocess((value) => {
         if (value === undefined) return undefined;
-        if (allowNull && value === null) return undefined;
+        if (allowNull && value === null) return null;
         if (typeof value === "string" && value.trim() === "") return undefined;
         return value;
-    }, jsonStringSchema(invalidMessage).optional());
+    }, baseSchema);
+};
 
 // Common schemas
 export const idParamSchema = z
@@ -73,7 +78,7 @@ export const createPromptSchema = z
             .string({ message: "Content is required" })
             .trim()
             .min(1, { message: "Content cannot be empty" }),
-        expectedSchema: optionalJsonStringSchema("Output structure must be valid JSON"),
+        expectedSchema: optionalJsonStringSchema("Output structure must be valid JSON", true),
         evaluationMode: z.enum(["llm", "schema"]).optional(),
         evaluationCriteria: z.string().trim().optional(),
         parentVersionId: z.coerce.number().int().positive().optional(),

@@ -132,7 +132,7 @@ export async function toggleGroup(groupId: number, promptId: number): Promise<vo
 export async function createPrompt(data: {
     name: string;
     content: string;
-    expectedSchema?: string;
+    expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
 }): Promise<Prompt | null> {
@@ -153,7 +153,7 @@ export async function createPromptVersion(
     parentId: number,
     name: string,
     content: string,
-    expectedSchema?: string,
+    expectedSchema?: string | null,
     evaluationMode?: "llm" | "schema",
     evaluationCriteria?: string
 ): Promise<Prompt | null> {

@@ -70,7 +70,7 @@ export function createPrompt(
     name: string,
     content: string,
     parentVersionId?: number,
-    expectedSchema?: string,
+    expectedSchema?: string | null,
     evaluationMode?: string,
     evaluationCriteria?: string
 ) {
@@ -101,8 +101,8 @@ export function createPrompt(
             if (parent) {
                 version = parent.version + 1;
                 promptGroupId = parent.promptGroupId;
-                // Inherit schema from parent if not explicitly provided
-                if (!expectedSchema && parent.expectedSchema) {
+                // Inherit schema from parent only when omitted
+                if (expectedSchema === undefined && parent.expectedSchema) {
                     schemaToUse = parent.expectedSchema;
                 }
                 if (shouldInheritEvaluationMode && parent.evaluationMode) {

@@ -45,7 +45,7 @@ export async function getPromptVersions(id: number): Promise<Prompt[]> {
 export async function createPrompt(data: {
     name: string;
     content: string;
-    expectedSchema?: string;
+    expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
     parentVersionId?: number;
