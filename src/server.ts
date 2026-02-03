@@ -53,11 +53,13 @@ const toTestCaseResponse = (testCase: {
     id: number;
     promptGroupId: number;
     input: string;
+    evaluationSchema?: string | null;
     createdAt: string;
 }) => ({
     id: testCase.id,
     promptGroupId: testCase.promptGroupId,
     input: testCase.input,
+    evaluationSchema: testCase.evaluationSchema ?? null,
     createdAt: testCase.createdAt,
 });
 
@@ -150,6 +152,8 @@ app.get("/api/prompts/export", (req, res) => {
             name: p.name,
             content: p.content,
             expected_schema: p.expectedSchema || null,
+            evaluation_mode: p.evaluationMode || undefined,
+            evaluation_criteria: p.evaluationCriteria || undefined,
         }));
 
         res.json(exportData);
@@ -164,6 +168,8 @@ app.post("/api/prompts/import", validate(importPromptsSchema), (req, res) => {
             name: string;
             content: string;
             expected_schema?: string | null;
+            evaluation_mode?: "llm" | "schema";
+            evaluation_criteria?: string;
         }>;
 
         const existingPrompts = getLatestPrompts();
@@ -183,7 +189,9 @@ app.post("/api/prompts/import", validate(importPromptsSchema), (req, res) => {
                 promptData.name,
                 promptData.content,
                 undefined,
-                promptData.expected_schema || undefined
+                promptData.expected_schema || undefined,
+                promptData.evaluation_mode,
+                promptData.evaluation_criteria
             );
             created.push({ name: prompt.name, id: prompt.id });
             existingNames.add(promptData.name.toLowerCase());
@@ -202,9 +210,23 @@ app.post("/api/prompts/import", validate(importPromptsSchema), (req, res) => {
 
 app.post("/api/prompts", validate(createPromptSchema), (req, res) => {
     try {
-        const { name, content, parentVersionId, expectedSchema } = req.body;
+        const {
+            name,
+            content,
+            parentVersionId,
+            expectedSchema,
+            evaluationMode,
+            evaluationCriteria,
+        } = req.body;
 
-        const prompt = createPrompt(name, content, parentVersionId, expectedSchema);
+        const prompt = createPrompt(
+            name,
+            content,
+            parentVersionId,
+            expectedSchema,
+            evaluationMode,
+            evaluationCriteria
+        );
         res.json(prompt);
     } catch (error) {
         res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -273,6 +295,7 @@ app.get("/api/prompts/:id/test-cases/export", validateIdParam, (req, res) => {
         // Export format: exclude internal IDs and timestamps
         const exportData = testCases.map((tc) => ({
             input: tc.input,
+            evaluation_schema: tc.evaluationSchema || undefined,
         }));
 
         res.json(exportData);
@@ -289,11 +312,12 @@ app.post(
         try {
             const promptId = parseInt(req.params.id, 10);
             const { input } = req.body;
+            const { evaluationSchema } = req.body;
 
             const prompt = getPromptByIdOrFail(promptId);
             const promptGroupId = prompt.promptGroupId ?? promptId;
 
-            const testCase = createTestCase(promptGroupId, input);
+            const testCase = createTestCase(promptGroupId, input, evaluationSchema);
             res.json(toTestCaseResponse(testCase));
         } catch (error) {
             res.status(getErrorStatusCode(error)).json({ error: getErrorMessage(error) });
@@ -304,9 +328,9 @@ app.post(
 app.put("/api/test-cases/:id", validateIdParam, validate(updateTestCaseSchema), (req, res) => {
     try {
         const id = parseInt(req.params.id, 10);
-        const { input } = req.body;
+        const { input, evaluationSchema } = req.body;
 
-        const testCase = updateTestCase(id, input);
+        const testCase = updateTestCase(id, input, evaluationSchema);
         if (!testCase) {
             throw new NotFoundError("Test case", id);
         }
@@ -335,6 +359,7 @@ app.post(
             const promptId = parseInt(req.params.id, 10);
             const testCasesData = req.body as Array<{
                 input: string;
+                evaluation_schema?: string;
             }>;
 
             const prompt = getPromptByIdOrFail(promptId);
@@ -348,6 +373,7 @@ app.post(
                 promptGroupId,
                 testCasesData.map((tc) => ({
                     input: tc.input,
+                    evaluationSchema: tc.evaluation_schema || undefined,
                 }))
             );
 

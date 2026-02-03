@@ -19,6 +19,8 @@
     let name = $state("");
     let content = $state("");
     let expectedSchema = $state("");
+    let evaluationMode = $state<"llm" | "schema">("llm");
+    let evaluationCriteria = $state("");
     let loading = $state(false);
     let loadedPrompt = $state<Prompt | null>(null);
 
@@ -31,6 +33,8 @@
             name = "";
             content = "";
             expectedSchema = "";
+            evaluationMode = "llm";
+            evaluationCriteria = "";
             loadedPrompt = null;
         }
     });
@@ -43,6 +47,8 @@
             name = prompt.name;
             content = prompt.content;
             expectedSchema = prompt.expectedSchema || "";
+            evaluationMode = prompt.evaluationMode || "llm";
+            evaluationCriteria = prompt.evaluationCriteria || "";
         } catch (error) {
             showError("Error loading prompt");
         } finally {
@@ -73,6 +79,7 @@
             return;
         }
 
+
         loading = true;
         try {
             if (mode === "new") {
@@ -80,6 +87,9 @@
                     name: name.trim(),
                     content: content.trim(),
                     expectedSchema: expectedSchema.trim() || undefined,
+                    evaluationMode,
+                    evaluationCriteria:
+                        evaluationMode === "llm" ? evaluationCriteria.trim() || undefined : undefined,
                 });
                 if (result) {
                     onclose();
@@ -89,7 +99,9 @@
                     promptId,
                     promptName,
                     content.trim(),
-                    expectedSchema.trim() || undefined
+                    expectedSchema.trim() || undefined,
+                    evaluationMode,
+                    evaluationMode === "llm" ? evaluationCriteria.trim() || undefined : undefined
                 );
                 if (result) {
                     onclose();
@@ -137,6 +149,26 @@
                 <pre class="view-prompt-content">{formatJSON(loadedPrompt.expectedSchema)}</pre>
             </div>
         {/if}
+        <div class="form-group">
+            <!-- svelte-ignore a11y_label_has_associated_control -->
+            <label>Evaluation Mode</label>
+            <div class="view-prompt-content">
+                {loadedPrompt?.evaluationMode === "schema" ? "Schema evaluation" : "LLM evaluation"}
+            </div>
+        </div>
+        {#if loadedPrompt?.evaluationMode === "llm" && loadedPrompt?.evaluationCriteria}
+            <div class="form-group">
+                <!-- svelte-ignore a11y_label_has_associated_control -->
+                <label>Evaluation Criteria</label>
+                <pre class="view-prompt-content">{loadedPrompt.evaluationCriteria}</pre>
+            </div>
+        {:else if loadedPrompt?.evaluationMode === "schema"}
+            <div class="form-group">
+                <!-- svelte-ignore a11y_label_has_associated_control -->
+                <label>Evaluation Schema</label>
+                <div class="view-prompt-content">Defined per test case.</div>
+            </div>
+        {/if}
     {:else}
         <form id="new-prompt-form" onsubmit={handleSubmit}>
             {#if mode === "new"}
@@ -174,6 +206,28 @@
                 ></textarea>
                 <small>Optional. When set, responses are generated as structured objects.</small>
             </div>
+            <div class="form-group">
+                <label for="evaluation-mode">Evaluation Mode</label>
+                <select id="evaluation-mode" bind:value={evaluationMode}>
+                    <option value="llm">LLM evaluation</option>
+                    <option value="schema">Schema evaluation</option>
+                </select>
+                <small>
+                    LLM evaluation uses criteria text. Schema evaluation uses a JSON schema per test case.
+                </small>
+            </div>
+            {#if evaluationMode === "llm"}
+                <div class="form-group">
+                    <label for="evaluation-criteria">Evaluation Criteria</label>
+                    <textarea
+                        id="evaluation-criteria"
+                        class="medium"
+                        bind:value={evaluationCriteria}
+                        placeholder="Describe what a good response should include..."
+                    ></textarea>
+                    <small>Optional. Leave empty to skip evaluation.</small>
+                </div>
+            {/if}
         </form>
     {/if}
 

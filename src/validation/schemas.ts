@@ -74,6 +74,8 @@ export const createPromptSchema = z
             .trim()
             .min(1, { message: "Content cannot be empty" }),
         expectedSchema: optionalJsonStringSchema("Output structure must be valid JSON"),
+        evaluationMode: z.enum(["llm", "schema"]).optional(),
+        evaluationCriteria: z.string().trim().optional(),
         parentVersionId: z.coerce.number().int().positive().optional(),
     })
     .strict();
@@ -85,6 +87,7 @@ export const createTestCaseSchema = z
             .string({ message: "Input is required" })
             .trim()
             .min(1, { message: "Input cannot be empty" }),
+        evaluationSchema: optionalJsonStringSchema("Evaluation schema must be valid JSON"),
     })
     .strict();
 
@@ -94,11 +97,22 @@ export const updateTestCaseSchema = z
             .string({ message: "Input is required" })
             .trim()
             .min(1, { message: "Input cannot be empty" }),
+        evaluationSchema: optionalJsonStringSchema("Evaluation schema must be valid JSON"),
+    })
+    .strict();
+
+const importTestCaseItemSchema = z
+    .object({
+        input: z
+            .string({ message: "Input is required" })
+            .trim()
+            .min(1, { message: "Input cannot be empty" }),
+        evaluation_schema: optionalJsonStringSchema("evaluation_schema must be valid JSON", true),
     })
     .strict();
 
 export const importTestCasesSchema = z
-    .array(createTestCaseSchema, { message: "Test cases must be an array" })
+    .array(importTestCaseItemSchema, { message: "Test cases must be an array" })
     .min(0);
 
 // Import prompts schema
@@ -113,6 +127,8 @@ const importPromptItemSchema = z
             .trim()
             .min(1, { message: "Content cannot be empty" }),
         expected_schema: optionalJsonStringSchema("expected_schema must be valid JSON", true),
+        evaluation_mode: z.enum(["llm", "schema"]).optional(),
+        evaluation_criteria: z.string().trim().optional(),
     })
     .strict();
 

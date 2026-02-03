@@ -12,6 +12,8 @@ export const prompts = sqliteTable(
         name: text("name").notNull(),
         content: text("content").notNull(),
         expectedSchema: text("expected_schema"),
+        evaluationMode: text("evaluation_mode"),
+        evaluationCriteria: text("evaluation_criteria"),
         version: integer("version").notNull().default(1),
         parentVersionId: integer("parent_version_id").references((): any => prompts.id),
         promptGroupId: integer("prompt_group_id"),
@@ -26,6 +28,7 @@ export const testCases = sqliteTable(
         id: integer("id").primaryKey({ autoIncrement: true }),
         promptGroupId: integer("prompt_group_id").notNull(),
         input: text("input").notNull(),
+        evaluationSchema: text("evaluation_schema"),
         createdAt: text("created_at").notNull(),
     },
     (table) => [index("test_cases_prompt_group_id_idx").on(table.promptGroupId)]

@@ -70,13 +70,21 @@ export function createPrompt(
     name: string,
     content: string,
     parentVersionId?: number,
-    expectedSchema?: string
+    expectedSchema?: string,
+    evaluationMode?: string,
+    evaluationCriteria?: string
 ) {
     return withSave(() => {
         const db = getDb();
         let version = 1;
         let promptGroupId: number | null = null;
         let schemaToUse = expectedSchema ?? null;
+        let evaluationModeToUse = evaluationMode ?? null;
+        let evaluationCriteriaToUse = evaluationCriteria ?? null;
+
+        const shouldInheritEvaluationMode = evaluationMode === undefined;
+        const shouldInheritEvaluationCriteria =
+            evaluationCriteria === undefined && evaluationMode === undefined;
 
         if (parentVersionId) {
             const parent = db
@@ -84,6 +92,8 @@ export function createPrompt(
                     version: prompts.version,
                     promptGroupId: prompts.promptGroupId,
                     expectedSchema: prompts.expectedSchema,
+                    evaluationMode: prompts.evaluationMode,
+                    evaluationCriteria: prompts.evaluationCriteria,
                 })
                 .from(prompts)
                 .where(eq(prompts.id, parentVersionId))
@@ -95,6 +105,12 @@ export function createPrompt(
                 if (!expectedSchema && parent.expectedSchema) {
                     schemaToUse = parent.expectedSchema;
                 }
+                if (shouldInheritEvaluationMode && parent.evaluationMode) {
+                    evaluationModeToUse = parent.evaluationMode;
+                }
+                if (shouldInheritEvaluationCriteria && parent.evaluationCriteria) {
+                    evaluationCriteriaToUse = parent.evaluationCriteria;
+                }
             }
         }
 
@@ -105,6 +121,8 @@ export function createPrompt(
                 name,
                 content,
                 expectedSchema: schemaToUse,
+                evaluationMode: evaluationModeToUse,
+                evaluationCriteria: evaluationCriteriaToUse,
                 version,
                 parentVersionId: parentVersionId ?? null,
                 promptGroupId,
@@ -212,6 +230,8 @@ export function getLatestPrompts(): Prompt[] {
             name: prompts.name,
             content: prompts.content,
             expectedSchema: prompts.expectedSchema,
+            evaluationMode: prompts.evaluationMode,
+            evaluationCriteria: prompts.evaluationCriteria,
             version: prompts.version,
             parentVersionId: prompts.parentVersionId,
             promptGroupId: prompts.promptGroupId,
@@ -238,7 +258,7 @@ export function getPromptVersionsByGroupId(groupId: number): Prompt[] {
         .all();
 }
 
-export function createTestCase(promptGroupId: number, input: string) {
+export function createTestCase(promptGroupId: number, input: string, evaluationSchema?: string) {
     return withSave(() => {
         const createdAt = new Date().toISOString();
         return getDb()
@@ -246,6 +266,7 @@ export function createTestCase(promptGroupId: number, input: string) {
             .values({
                 promptGroupId,
                 input,
+                evaluationSchema: evaluationSchema ?? null,
                 createdAt,
             })
             .returning()
@@ -282,9 +303,13 @@ export function deleteTestCase(id: number): void {
     });
 }
 
-export function updateTestCase(id: number, input: string) {
+export function updateTestCase(id: number, input: string, evaluationSchema?: string) {
     withSave(() => {
-        getDb().update(testCases).set({ input }).where(eq(testCases.id, id)).run();
+        const updates: { input: string; evaluationSchema?: string | null } = { input };
+        if (evaluationSchema !== undefined) {
+            updates.evaluationSchema = evaluationSchema ?? null;
+        }
+        getDb().update(testCases).set(updates).where(eq(testCases.id, id)).run();
     });
     return getTestCaseById(id);
 }
@@ -297,7 +322,7 @@ export function deleteAllTestCasesForPromptGroup(promptGroupId: number): void {
 
 export function bulkCreateTestCases(
     promptGroupId: number,
-    testCasesData: Array<{ input: string }>
+    testCasesData: Array<{ input: string; evaluationSchema?: string }>
 ): TestCase[] {
     return withSave(() => {
         const db = getDb();
@@ -310,6 +335,7 @@ export function bulkCreateTestCases(
                 .values({
                     promptGroupId,
                     input: tc.input,
+                    evaluationSchema: tc.evaluationSchema ?? null,
                     createdAt,
                 })
                 .returning()

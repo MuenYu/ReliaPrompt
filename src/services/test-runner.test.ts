@@ -117,6 +117,7 @@ function createTestCase(id: number, input: string): TestCase {
         id,
         promptGroupId: 1,
         input,
+        evaluationSchema: null,
         createdAt: new Date().toISOString(),
     };
 }
@@ -128,6 +129,8 @@ function createPrompt(id: number, content: string): Prompt {
         name: `Test Prompt ${id}`,
         content,
         expectedSchema: null,
+        evaluationMode: null,
+        evaluationCriteria: null,
         version: 1,
         parentVersionId: null,
         promptGroupId: id,

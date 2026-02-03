@@ -14,6 +14,7 @@
 
     // Editor form state
     let formInput = $state("");
+    let formEvaluationSchema = $state("");
     let formError = $state("");
     let saving = $state(false);
 
@@ -27,6 +28,7 @@
     // Load test cases when prompt changes
     $effect(() => {
         if ($selectedPrompt) {
+            hideEditor();
             loadTestCases($selectedPrompt.id);
         } else {
             testCases = [];
@@ -52,8 +54,10 @@
 
         if (tc) {
             formInput = tc.input;
+            formEvaluationSchema = tc.evaluationSchema || "";
         } else {
             formInput = "";
+            formEvaluationSchema = "";
         }
     }
 
@@ -78,6 +82,7 @@
         if (!$selectedPrompt) return;
 
         const input = formInput.trim();
+        const evaluationSchema = formEvaluationSchema.trim();
 
         if (!input) {
             formError = "Input is required.";
@@ -88,9 +93,10 @@
         formError = "";
 
         try {
-            const data = {
-                input,
-            };
+            const data: { input: string; evaluationSchema?: string } = { input };
+            if ($selectedPrompt.evaluationMode === "schema") {
+                data.evaluationSchema = evaluationSchema || undefined;
+            }
 
             if (editorMode === "edit" && activeTestCaseId) {
                 const updated = await api.updateTestCase(activeTestCaseId, data);
@@ -172,11 +178,11 @@
 
                 for (let i = 0; i < data.length; i++) {
                     const tc = data[i];
-                    if (!tc.input) {
-                        showError(`Test case ${i + 1} is missing required fields`);
-                        return;
-                    }
+                if (!tc.input) {
+                    showError(`Test case ${i + 1} is missing required fields`);
+                    return;
                 }
+            }
 
                 const count = data.length;
                 const confirmMessage =
@@ -314,6 +320,18 @@
                                     bind:value={formInput}
                                 ></textarea>
                             </div>
+                            {#if $selectedPrompt.evaluationMode === "schema"}
+                                <div class="form-group">
+                                    <label for="tc-eval-schema">Evaluation Schema (JSON)</label>
+                                    <textarea
+                                        id="tc-eval-schema"
+                                        class="medium"
+                                        placeholder={`{"type": "object", "properties": {"answer": {"type": "string"}}}`}
+                                        bind:value={formEvaluationSchema}
+                                    ></textarea>
+                                    <small>Provide a JSON schema for evaluating this test case.</small>
+                                </div>
+                            {/if}
                         </div>
 
                         <div class="editor-footer">

@@ -15,6 +15,8 @@ export interface Prompt {
     version: number;
     promptGroupId: number;
     expectedSchema?: string | null;
+    evaluationMode?: "llm" | "schema" | null;
+    evaluationCriteria?: string | null;
     createdAt: string;
 }
 
@@ -29,11 +31,15 @@ export interface CreatePromptRequest {
     name: string;
     content: string;
     expectedSchema?: string;
+    evaluationMode?: "llm" | "schema";
+    evaluationCriteria?: string;
 }
 
 export interface CreateVersionRequest {
     content: string;
     expectedSchema?: string;
+    evaluationMode?: "llm" | "schema";
+    evaluationCriteria?: string;
 }
 
 // ============================================
@@ -73,15 +79,18 @@ export interface TestCase {
     id: number;
     promptGroupId: number;
     input: string;
+    evaluationSchema?: string | null;
     createdAt: string;
 }
 
 export interface CreateTestCaseRequest {
     input: string;
+    evaluationSchema?: string;
 }
 
 export interface UpdateTestCaseRequest {
     input?: string;
+    evaluationSchema?: string;
 }
 
 // ============================================
@@ -164,8 +173,11 @@ export interface ExportPromptData {
     name: string;
     content: string;
     expectedSchema?: string;
+    evaluation_mode?: "llm" | "schema";
+    evaluation_criteria?: string;
 }
 
 export interface ExportTestCaseData {
     input: string;
+    evaluation_schema?: string;
 }

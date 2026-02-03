@@ -46,6 +46,8 @@ export async function createPrompt(data: {
     name: string;
     content: string;
     expectedSchema?: string;
+    evaluationMode?: "llm" | "schema";
+    evaluationCriteria?: string;
     parentVersionId?: number;
 }): Promise<Prompt> {
     return fetchJSON<Prompt>("/api/prompts", {
@@ -105,6 +107,7 @@ export async function createTestCase(
     promptId: number,
     data: {
         input: string;
+        evaluationSchema?: string;
     }
 ): Promise<TestCase> {
     return fetchJSON<TestCase>(`/api/prompts/${promptId}/test-cases`, {
@@ -117,6 +120,7 @@ export async function updateTestCase(
     id: number,
     data: {
         input: string;
+        evaluationSchema?: string;
     }
 ): Promise<TestCase> {
     return fetchJSON<TestCase>(`/api/test-cases/${id}`, {
