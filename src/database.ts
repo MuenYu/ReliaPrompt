@@ -408,6 +408,7 @@ export function createTestResult(
     expectedFound: number,
     expectedTotal: number,
     unexpectedFound: number,
+    evaluationReason: string | null,
     durationMs?: number
 ) {
     return withSave(() => {
@@ -425,6 +426,7 @@ export function createTestResult(
                 expectedFound,
                 expectedTotal,
                 unexpectedFound,
+                evaluationReason,
                 durationMs: durationMs ?? null,
                 createdAt,
             })

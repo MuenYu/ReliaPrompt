@@ -139,6 +139,7 @@ export interface TestRun {
     score: number;
     isCorrect: boolean;
     actualOutput?: unknown;
+    evaluationReason?: string;
     error?: string;
     durationMs?: number;
     expectedFound?: number;

@@ -15,6 +15,13 @@
       "when": 1770076803037,
       "tag": "0001_charming_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770096574401,
+      "tag": "0002_normal_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

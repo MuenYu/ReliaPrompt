@@ -52,6 +52,7 @@ interface EvaluationResult {
     expectedFound: number;
     expectedTotal: number;
     unexpectedFound: number;
+    evaluationReason?: string;
     error?: string;
 }
 
@@ -88,6 +89,7 @@ function getSkippedEvaluationResult(): EvaluationResult {
         expectedFound: 0,
         expectedTotal: 0,
         unexpectedFound: 0,
+        evaluationReason: "Evaluation skipped",
     };
 }
 
@@ -318,6 +320,7 @@ async function evaluateWithLLM(options: {
             expectedFound: 0,
             expectedTotal: 0,
             unexpectedFound: 0,
+            evaluationReason: "OpenAI API key not configured for LLM evaluation",
             error: "OpenAI API key not configured for LLM evaluation",
         };
     }
@@ -358,6 +361,7 @@ async function evaluateWithLLM(options: {
                 expectedFound: 0,
                 expectedTotal: 0,
                 unexpectedFound: 0,
+                evaluationReason: "Evaluation model returned invalid JSON",
                 error: "Evaluation model returned invalid JSON",
             };
         }
@@ -369,15 +373,18 @@ async function evaluateWithLLM(options: {
             expectedFound: 0,
             expectedTotal: 0,
             unexpectedFound: 0,
+            evaluationReason: parsed.data.reason,
         };
     } catch (error) {
+        const errorMessage = getErrorMessage(error);
         return {
             isCorrect: false,
             score: 0,
             expectedFound: 0,
             expectedTotal: 0,
             unexpectedFound: 0,
-            error: getErrorMessage(error),
+            evaluationReason: errorMessage,
+            error: errorMessage,
         };
     }
 }
@@ -396,6 +403,7 @@ function evaluateWithSchema(options: {
             expectedFound: 0,
             expectedTotal: 0,
             unexpectedFound: 0,
+            evaluationReason: "Evaluation schema is not valid JSON",
             error: "Evaluation schema is not valid JSON",
         };
     }
@@ -418,6 +426,7 @@ function evaluateWithSchema(options: {
             expectedFound: 0,
             expectedTotal: 1,
             unexpectedFound: 0,
+            evaluationReason: result.error.issues.map((issue) => issue.message).join("; "),
             error: result.error.issues.map((issue) => issue.message).join("; "),
         };
     }
@@ -428,6 +437,7 @@ function evaluateWithSchema(options: {
         expectedFound: 1,
         expectedTotal: 1,
         unexpectedFound: 0,
+        evaluationReason: "Matches evaluation schema",
     };
 }
 
@@ -518,6 +528,7 @@ export interface BaseTestResult {
     expectedFound: number;
     expectedTotal: number;
     unexpectedFound: number;
+    evaluationReason?: string;
     error?: string;
     durationMs?: number;
 }
@@ -748,6 +759,7 @@ export async function runTests(
                         expectedFound: evaluationResult.expectedFound,
                         expectedTotal: evaluationResult.expectedTotal,
                         unexpectedFound: evaluationResult.unexpectedFound,
+                        evaluationReason: evaluationResult.evaluationReason,
                         error: evaluationResult.error,
                         durationMs,
                     });
@@ -765,6 +777,7 @@ export async function runTests(
                             evaluationResult.expectedFound,
                             evaluationResult.expectedTotal,
                             evaluationResult.unexpectedFound,
+                            evaluationResult.evaluationReason ?? null,
                             durationMs
                         );
                     }
@@ -779,6 +792,7 @@ export async function runTests(
                         expectedFound: 0,
                         expectedTotal: 0,
                         unexpectedFound: 0,
+                        evaluationReason: errorMessage,
                         error: errorMessage,
                     });
 
@@ -794,7 +808,8 @@ export async function runTests(
                             0,
                             0,
                             0,
-                            0
+                            0,
+                            errorMessage
                         );
                     }
                 }
@@ -967,6 +982,7 @@ export function dbTestResultToRunResult(dbResult: DbTestResult): RunResult {
         expectedFound: dbResult.expectedFound,
         expectedTotal: dbResult.expectedTotal,
         unexpectedFound: dbResult.unexpectedFound,
+        evaluationReason: dbResult.evaluationReason ?? undefined,
         error: dbResult.error ?? undefined,
         durationMs: dbResult.durationMs ?? undefined,
     };
@@ -993,6 +1009,7 @@ export function runResultToDbTestResult(
         expectedFound: runResult.expectedFound,
         expectedTotal: runResult.expectedTotal,
         unexpectedFound: runResult.unexpectedFound,
+        evaluationReason: runResult.evaluationReason ?? null,
         error: runResult.error ?? null,
         durationMs: runResult.durationMs ?? null,
     };

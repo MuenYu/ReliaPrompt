@@ -200,6 +200,17 @@
         );
     }
 
+    function getSampleEvaluationReason(
+        runs: Array<{ evaluationReason?: string; error?: string }>
+    ): string {
+        if (!runs || runs.length === 0) return "N/A";
+        const firstWithReason = runs.find((run) => run.evaluationReason) || runs[0];
+        return (
+            firstWithReason.evaluationReason ??
+            (firstWithReason.error ? `Error: ${firstWithReason.error}` : "N/A")
+        );
+    }
+
     const canRun = $derived(testCaseCount > 0 && $selectedModels.length > 0 && !running);
 
     onMount(() => {
@@ -404,6 +415,8 @@
                 <div class="json-preview">{tc.input.substring(0, 200)}{tc.input.length > 200 ? "..." : ""}</div>
                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Sample Output:</strong></div>
                 <div class="json-preview">{getSampleOutput(tc.runs)}</div>
+                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Evaluation:</strong></div>
+                <div class="json-preview">{getSampleEvaluationReason(tc.runs)}</div>
 
                 {#if !showAllRuns && tc.runs && tc.runs.length > 0}
                     <div style="margin-top: 12px;">
@@ -444,6 +457,12 @@
                                     <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Actual Output:</div>
                                     <div class="json-preview" style="font-size: 13px; max-height: 150px; overflow-y: auto;">
                                         {formatOutput(run.actualOutput ?? (run.error ? `Error: ${run.error}` : "N/A"))}
+                                    </div>
+                                </div>
+                                <div style="margin-top: 8px;">
+                                    <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Evaluation:</div>
+                                    <div class="json-preview" style="font-size: 13px; max-height: 120px; overflow-y: auto;">
+                                        {run.evaluationReason ?? (run.error ? `Error: ${run.error}` : "N/A")}
                                     </div>
                                 </div>
                             </div>
