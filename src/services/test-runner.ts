@@ -9,8 +9,10 @@ import {
     Prompt,
     TestResult as DbTestResult,
 } from "../database";
-import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
+import { getConfiguredClients, ModelSelection, LLMClient, openaiClient } from "../llm-clients";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
+import { z } from "zod";
+import equal from "fast-deep-equal";
 
 // Represents a model to run tests against
 export interface ModelRunner {
@@ -20,6 +22,451 @@ export interface ModelRunner {
 }
 
 const DEFAULT_RUNS_PER_TEST = 1;
+const DEFAULT_EVALUATION_MODEL = "gpt-5.2";
+
+type EvaluationMode = "llm" | "schema";
+
+type JsonSchema = {
+    type?: string | string[];
+    properties?: Record<string, JsonSchema>;
+    required?: string[];
+    items?: JsonSchema;
+    enum?: unknown[];
+    const?: unknown;
+    additionalProperties?: boolean | JsonSchema;
+    minItems?: number;
+    maxItems?: number;
+    minLength?: number;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+    pattern?: string;
+    oneOf?: JsonSchema[];
+    anyOf?: JsonSchema[];
+    allOf?: JsonSchema[];
+};
+
+interface EvaluationResult {
+    isCorrect: boolean;
+    score: number;
+    expectedFound: number;
+    expectedTotal: number;
+    unexpectedFound: number;
+    error?: string;
+}
+
+const evaluationResponseSchema = z.object({
+    score: z.number().min(0).max(1),
+    reason: z
+        .string()
+        .trim()
+        .min(1)
+        .refine((value) => countWords(value) <= 100, {
+            message: "Reason must be 100 words or fewer",
+        }),
+});
+
+function countWords(text: string): number {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+}
+
+function normalizeEvaluationMode(mode: unknown): EvaluationMode | undefined {
+    if (mode === "llm" || mode === "schema") return mode;
+    return undefined;
+}
+
+function hasText(value: unknown): value is string {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+function getSkippedEvaluationResult(): EvaluationResult {
+    return {
+        isCorrect: true,
+        score: 1,
+        expectedFound: 0,
+        expectedTotal: 0,
+        unexpectedFound: 0,
+    };
+}
+
+function formatOutputForEvaluation(output: unknown): string {
+    const serialized = serializeOutput(output);
+    if (serialized === null) return "null";
+    return serialized;
+}
+
+function getValueType(value: unknown): string {
+    if (value === null) return "null";
+    if (Array.isArray(value)) return "array";
+    return typeof value;
+}
+
+function matchesType(value: unknown, schemaType: string): boolean {
+    switch (schemaType) {
+        case "string":
+            return typeof value === "string";
+        case "number":
+            return typeof value === "number" && !Number.isNaN(value);
+        case "integer":
+            return typeof value === "number" && Number.isInteger(value);
+        case "boolean":
+            return typeof value === "boolean";
+        case "null":
+            return value === null;
+        case "array":
+            return Array.isArray(value);
+        case "object":
+            return typeof value === "object" && value !== null && !Array.isArray(value);
+        default:
+            return true;
+    }
+}
+
+function schemaHasType(schema: JsonSchema, schemaType: string): boolean {
+    if (!schema.type) return false;
+    return Array.isArray(schema.type)
+        ? schema.type.includes(schemaType)
+        : schema.type === schemaType;
+}
+
+function buildJsonSchemaValidator(schema: JsonSchema): z.ZodTypeAny {
+    return z.any().superRefine((value, context) => {
+        const errors = validateJsonSchema(schema, value);
+        if (errors.length > 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: errors.slice(0, 5).join("; "),
+            });
+        }
+    });
+}
+
+function validateJsonSchema(schema: JsonSchema, value: unknown, path: string = "$"): string[] {
+    if (!schema || typeof schema !== "object") {
+        return ["Evaluation schema must be an object"];
+    }
+
+    const errors: string[] = [];
+    const addError = (message: string) => {
+        errors.push(`${path}: ${message}`);
+    };
+
+    if (schema.allOf && Array.isArray(schema.allOf)) {
+        for (const subSchema of schema.allOf) {
+            errors.push(...validateJsonSchema(subSchema, value, path));
+        }
+        return errors;
+    }
+
+    if (schema.anyOf && Array.isArray(schema.anyOf)) {
+        const anyValid = schema.anyOf.some(
+            (subSchema) => validateJsonSchema(subSchema, value, path).length === 0
+        );
+        if (!anyValid) {
+            addError("Value does not match anyOf schemas");
+        }
+        return errors;
+    }
+
+    if (schema.oneOf && Array.isArray(schema.oneOf)) {
+        const validCount = schema.oneOf.filter(
+            (subSchema) => validateJsonSchema(subSchema, value, path).length === 0
+        ).length;
+        if (validCount !== 1) {
+            addError("Value does not match exactly one schema in oneOf");
+        }
+        return errors;
+    }
+
+    if (schema.const !== undefined && !equal(schema.const, value)) {
+        addError("Value does not match const");
+        return errors;
+    }
+
+    if (schema.enum && Array.isArray(schema.enum)) {
+        const matchesEnum = schema.enum.some((item) => equal(item, value));
+        if (!matchesEnum) {
+            addError("Value does not match enum");
+            return errors;
+        }
+    }
+
+    if (schema.type) {
+        const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+        const matches = types.some((type) => matchesType(value, type));
+        if (!matches) {
+            addError(`Expected type ${types.join("|")}, received ${getValueType(value)}`);
+            return errors;
+        }
+    }
+
+    if (
+        (schemaHasType(schema, "object") || schema.properties || schema.required) &&
+        value !== null
+    ) {
+        if (typeof value !== "object" || Array.isArray(value)) {
+            addError("Expected object");
+            return errors;
+        }
+
+        const recordValue = value as Record<string, unknown>;
+        const requiredKeys = schema.required ?? [];
+        for (const key of requiredKeys) {
+            if (!(key in recordValue)) {
+                errors.push(`${path}.${key}: Missing required property`);
+            }
+        }
+
+        const properties = schema.properties ?? {};
+        for (const [key, childSchema] of Object.entries(properties)) {
+            if (key in recordValue) {
+                errors.push(...validateJsonSchema(childSchema, recordValue[key], `${path}.${key}`));
+            }
+        }
+
+        if (schema.additionalProperties === false) {
+            const allowedKeys = new Set(Object.keys(properties));
+            for (const key of Object.keys(recordValue)) {
+                if (!allowedKeys.has(key)) {
+                    errors.push(`${path}.${key}: Unexpected property`);
+                }
+            }
+        }
+
+        if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+            const allowedKeys = new Set(Object.keys(properties));
+            for (const [key, childValue] of Object.entries(recordValue)) {
+                if (!allowedKeys.has(key)) {
+                    errors.push(
+                        ...validateJsonSchema(
+                            schema.additionalProperties,
+                            childValue,
+                            `${path}.${key}`
+                        )
+                    );
+                }
+            }
+        }
+    }
+
+    if (schemaHasType(schema, "array") || schema.items) {
+        if (!Array.isArray(value)) {
+            addError("Expected array");
+            return errors;
+        }
+
+        if (schema.minItems !== undefined && value.length < schema.minItems) {
+            addError(`Expected at least ${schema.minItems} items`);
+        }
+        if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+            addError(`Expected at most ${schema.maxItems} items`);
+        }
+
+        if (schema.items) {
+            value.forEach((item, index) => {
+                errors.push(...validateJsonSchema(schema.items!, item, `${path}[${index}]`));
+            });
+        }
+    }
+
+    if (schemaHasType(schema, "string") && typeof value === "string") {
+        if (schema.minLength !== undefined && value.length < schema.minLength) {
+            addError(`Expected at least ${schema.minLength} characters`);
+        }
+        if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+            addError(`Expected at most ${schema.maxLength} characters`);
+        }
+        if (schema.pattern) {
+            try {
+                const regex = new RegExp(schema.pattern);
+                if (!regex.test(value)) {
+                    addError(`Value does not match pattern ${schema.pattern}`);
+                }
+            } catch {
+                addError("Invalid regex pattern in schema");
+            }
+        }
+    }
+
+    if (
+        (schemaHasType(schema, "number") || schemaHasType(schema, "integer")) &&
+        typeof value === "number"
+    ) {
+        if (schema.minimum !== undefined && value < schema.minimum) {
+            addError(`Expected number >= ${schema.minimum}`);
+        }
+        if (schema.maximum !== undefined && value > schema.maximum) {
+            addError(`Expected number <= ${schema.maximum}`);
+        }
+    }
+
+    return errors;
+}
+
+async function evaluateWithLLM(options: {
+    systemPrompt: string;
+    input: string;
+    output: unknown;
+    evaluationCriteria: string;
+}): Promise<EvaluationResult> {
+    if (!openaiClient.isConfigured()) {
+        return {
+            isCorrect: false,
+            score: 0,
+            expectedFound: 0,
+            expectedTotal: 0,
+            unexpectedFound: 0,
+            error: "OpenAI API key not configured for LLM evaluation",
+        };
+    }
+
+    const evaluationPrompt =
+        "You are a strict evaluator. Score the model output against the criteria. " +
+        "Return only JSON with keys score (0 to 1) and reason (<= 100 words).";
+
+    const evaluationUserMessage =
+        `System prompt:\n${options.systemPrompt}\n\n` +
+        `User input:\n${options.input}\n\n` +
+        `Model output:\n${formatOutputForEvaluation(options.output)}\n\n` +
+        `Evaluation criteria:\n${options.evaluationCriteria}\n`;
+
+    const outputSchema = {
+        type: "object",
+        additionalProperties: false,
+        required: ["score", "reason"],
+        properties: {
+            score: { type: "number", minimum: 0, maximum: 1 },
+            reason: { type: "string" },
+        },
+    };
+
+    try {
+        const response = await openaiClient.complete(
+            evaluationPrompt,
+            evaluationUserMessage,
+            DEFAULT_EVALUATION_MODEL,
+            outputSchema
+        );
+
+        const parsed = evaluationResponseSchema.safeParse(response);
+        if (!parsed.success) {
+            return {
+                isCorrect: false,
+                score: 0,
+                expectedFound: 0,
+                expectedTotal: 0,
+                unexpectedFound: 0,
+                error: "Evaluation model returned invalid JSON",
+            };
+        }
+
+        const score = parsed.data.score;
+        return {
+            isCorrect: score === 1,
+            score,
+            expectedFound: 0,
+            expectedTotal: 0,
+            unexpectedFound: 0,
+        };
+    } catch (error) {
+        return {
+            isCorrect: false,
+            score: 0,
+            expectedFound: 0,
+            expectedTotal: 0,
+            unexpectedFound: 0,
+            error: getErrorMessage(error),
+        };
+    }
+}
+
+function evaluateWithSchema(options: {
+    evaluationSchema: string;
+    output: unknown;
+}): EvaluationResult {
+    let parsedSchema: JsonSchema;
+    try {
+        parsedSchema = JSON.parse(options.evaluationSchema) as JsonSchema;
+    } catch {
+        return {
+            isCorrect: false,
+            score: 0,
+            expectedFound: 0,
+            expectedTotal: 0,
+            unexpectedFound: 0,
+            error: "Evaluation schema is not valid JSON",
+        };
+    }
+
+    let outputValue: unknown = options.output;
+    if (typeof options.output === "string") {
+        try {
+            outputValue = JSON.parse(options.output);
+        } catch {
+            outputValue = options.output;
+        }
+    }
+
+    const validator = buildJsonSchemaValidator(parsedSchema);
+    const result = validator.safeParse(outputValue);
+    if (!result.success) {
+        return {
+            isCorrect: false,
+            score: 0,
+            expectedFound: 0,
+            expectedTotal: 1,
+            unexpectedFound: 0,
+            error: result.error.issues.map((issue) => issue.message).join("; "),
+        };
+    }
+
+    return {
+        isCorrect: true,
+        score: 1,
+        expectedFound: 1,
+        expectedTotal: 1,
+        unexpectedFound: 0,
+    };
+}
+
+async function evaluateOutput(options: {
+    evaluationMode?: EvaluationMode;
+    evaluationCriteria?: string | null;
+    evaluationSchema?: string | null;
+    systemPrompt: string;
+    input: string;
+    output: unknown;
+}): Promise<EvaluationResult> {
+    const mode = normalizeEvaluationMode(options.evaluationMode);
+
+    if (mode === "llm") {
+        if (!hasText(options.evaluationCriteria)) {
+            return getSkippedEvaluationResult();
+        }
+
+        return evaluateWithLLM({
+            systemPrompt: options.systemPrompt,
+            input: options.input,
+            output: options.output,
+            evaluationCriteria: options.evaluationCriteria.trim(),
+        });
+    }
+
+    if (mode === "schema") {
+        if (!hasText(options.evaluationSchema)) {
+            return getSkippedEvaluationResult();
+        }
+
+        return evaluateWithSchema({
+            evaluationSchema: options.evaluationSchema.trim(),
+            output: options.output,
+        });
+    }
+
+    return getSkippedEvaluationResult();
+}
 
 export interface TestProgress {
     jobId: string;
@@ -211,6 +658,12 @@ export async function runTests(
     // Extract prompt content and ID
     const promptContent = typeof prompt === "string" ? prompt : prompt.content;
     const promptId = typeof prompt === "string" ? undefined : prompt.id;
+    const evaluationMode =
+        typeof prompt === "string"
+            ? undefined
+            : normalizeEvaluationMode(prompt.evaluationMode ?? undefined);
+    const evaluationCriteria =
+        typeof prompt === "string" ? null : (prompt.evaluationCriteria ?? null);
 
     // If expectedSchema not passed explicitly, try to get from prompt object
     const schemaString =
@@ -269,22 +722,33 @@ export async function runTests(
                     const normalizedOutput = actualOutput === undefined ? null : actualOutput;
                     const serializedOutput = serializeOutput(normalizedOutput);
                     const durationMs = Date.now() - startTime;
-                    const isCorrect = true;
+
+                    const evaluationResult = await evaluateOutput({
+                        evaluationMode,
+                        evaluationCriteria,
+                        evaluationSchema: testCase.evaluationSchema ?? null,
+                        systemPrompt,
+                        input: testCase.input,
+                        output: normalizedOutput,
+                    });
+
+                    const isCorrect = evaluationResult.isCorrect;
                     if (isCorrect) {
                         correctRuns++;
                         llmCorrectCount++;
                     }
-                    totalScore += 1;
+                    totalScore += evaluationResult.score;
                     llmTotalRuns++;
 
                     runs.push({
                         runNumber,
                         actualOutput: normalizedOutput,
                         isCorrect,
-                        score: 1,
-                        expectedFound: 0,
-                        expectedTotal: 0,
-                        unexpectedFound: 0,
+                        score: evaluationResult.score,
+                        expectedFound: evaluationResult.expectedFound,
+                        expectedTotal: evaluationResult.expectedTotal,
+                        unexpectedFound: evaluationResult.unexpectedFound,
+                        error: evaluationResult.error,
                         durationMs,
                     });
 
@@ -297,10 +761,10 @@ export async function runTests(
                             runNumber,
                             serializedOutput,
                             isCorrect,
-                            1,
-                            0,
-                            0,
-                            0,
+                            evaluationResult.score,
+                            evaluationResult.expectedFound,
+                            evaluationResult.expectedTotal,
+                            evaluationResult.unexpectedFound,
                             durationMs
                         );
                     }
