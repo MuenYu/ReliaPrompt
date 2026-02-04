@@ -72,7 +72,11 @@ export function createPrompt(
     parentVersionId?: number,
     expectedSchema?: string | null,
     evaluationMode?: string,
-    evaluationCriteria?: string
+    evaluationCriteria?: string,
+    optimizerModelProvider?: string,
+    optimizerModelId?: string,
+    optimizerMaxIterations?: number,
+    optimizerScoreThreshold?: number | null
 ) {
     return withSave(() => {
         const db = getDb();
@@ -81,10 +85,18 @@ export function createPrompt(
         let schemaToUse = expectedSchema ?? null;
         let evaluationModeToUse = evaluationMode ?? null;
         let evaluationCriteriaToUse = evaluationCriteria ?? null;
+        let optimizerModelProviderToUse = optimizerModelProvider ?? null;
+        let optimizerModelIdToUse = optimizerModelId ?? null;
+        let optimizerMaxIterationsToUse = optimizerMaxIterations ?? 0;
+        let optimizerScoreThresholdToUse = optimizerScoreThreshold ?? null;
 
         const shouldInheritEvaluationMode = evaluationMode === undefined;
         const shouldInheritEvaluationCriteria =
             evaluationCriteria === undefined && evaluationMode === undefined;
+        const shouldInheritOptimizerModelProvider = optimizerModelProvider === undefined;
+        const shouldInheritOptimizerModelId = optimizerModelId === undefined;
+        const shouldInheritOptimizerMaxIterations = optimizerMaxIterations === undefined;
+        const shouldInheritOptimizerScoreThreshold = optimizerScoreThreshold === undefined;
 
         if (parentVersionId) {
             const parent = db
@@ -94,6 +106,10 @@ export function createPrompt(
                     expectedSchema: prompts.expectedSchema,
                     evaluationMode: prompts.evaluationMode,
                     evaluationCriteria: prompts.evaluationCriteria,
+                    optimizerModelProvider: prompts.optimizerModelProvider,
+                    optimizerModelId: prompts.optimizerModelId,
+                    optimizerMaxIterations: prompts.optimizerMaxIterations,
+                    optimizerScoreThreshold: prompts.optimizerScoreThreshold,
                 })
                 .from(prompts)
                 .where(eq(prompts.id, parentVersionId))
@@ -111,6 +127,18 @@ export function createPrompt(
                 if (shouldInheritEvaluationCriteria && parent.evaluationCriteria) {
                     evaluationCriteriaToUse = parent.evaluationCriteria;
                 }
+                if (shouldInheritOptimizerModelProvider && parent.optimizerModelProvider) {
+                    optimizerModelProviderToUse = parent.optimizerModelProvider;
+                }
+                if (shouldInheritOptimizerModelId && parent.optimizerModelId) {
+                    optimizerModelIdToUse = parent.optimizerModelId;
+                }
+                if (shouldInheritOptimizerMaxIterations) {
+                    optimizerMaxIterationsToUse = parent.optimizerMaxIterations;
+                }
+                if (shouldInheritOptimizerScoreThreshold) {
+                    optimizerScoreThresholdToUse = parent.optimizerScoreThreshold;
+                }
             }
         }
 
@@ -123,6 +151,10 @@ export function createPrompt(
                 expectedSchema: schemaToUse,
                 evaluationMode: evaluationModeToUse,
                 evaluationCriteria: evaluationCriteriaToUse,
+                optimizerModelProvider: optimizerModelProviderToUse,
+                optimizerModelId: optimizerModelIdToUse,
+                optimizerMaxIterations: optimizerMaxIterationsToUse,
+                optimizerScoreThreshold: optimizerScoreThresholdToUse,
                 version,
                 parentVersionId: parentVersionId ?? null,
                 promptGroupId,
@@ -232,6 +264,10 @@ export function getLatestPrompts(): Prompt[] {
             expectedSchema: prompts.expectedSchema,
             evaluationMode: prompts.evaluationMode,
             evaluationCriteria: prompts.evaluationCriteria,
+            optimizerModelProvider: prompts.optimizerModelProvider,
+            optimizerModelId: prompts.optimizerModelId,
+            optimizerMaxIterations: prompts.optimizerMaxIterations,
+            optimizerScoreThreshold: prompts.optimizerScoreThreshold,
             version: prompts.version,
             parentVersionId: prompts.parentVersionId,
             promptGroupId: prompts.promptGroupId,
@@ -409,7 +445,8 @@ export function createTestResult(
     expectedTotal: number,
     unexpectedFound: number,
     evaluationReason: string | null,
-    durationMs?: number
+    durationMs?: number,
+    optimizationIteration: number = 0
 ) {
     return withSave(() => {
         const createdAt = new Date().toISOString();
@@ -426,6 +463,7 @@ export function createTestResult(
                 expectedFound,
                 expectedTotal,
                 unexpectedFound,
+                optimizationIteration,
                 evaluationReason,
                 durationMs: durationMs ?? null,
                 createdAt,

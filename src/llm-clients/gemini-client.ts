@@ -1,8 +1,9 @@
-import { generateText, generateObject, jsonSchema } from "ai";
+import { generateText, jsonSchema, Output, type ModelMessage } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
+import { pruneReasoningFromResponseMessages, pruneRequestMessages } from "./message-utils";
 
 interface GeminiModel {
     name: string;
@@ -87,7 +88,7 @@ export class GeminiClient implements LLMClient {
     }
 
     private async makeRequest(
-        messages: Array<{ role: "system" | "user"; content: string }>,
+        messages: ModelMessage[],
         modelId: string,
         outputSchema?: unknown,
         defaultValue: string = ""
@@ -97,23 +98,28 @@ export class GeminiClient implements LLMClient {
             throw new ConfigurationError("Gemini API key not configured");
         }
 
+        const prunedMessages = pruneRequestMessages(messages);
+
         if (outputSchema) {
-            const response = await generateObject({
+            const { output } = await generateText({
                 model: client(modelId),
-                messages,
-                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                messages: prunedMessages,
+                output: Output.object({
+                    schema: jsonSchema(outputSchema as Record<string, unknown>),
+                }),
                 maxOutputTokens: 4096,
             });
-            return (response.object ?? {}) as Record<string, unknown> | Array<unknown>;
+            return (output ?? {}) as Record<string, unknown> | Array<unknown>;
         }
 
-        const response = await generateText({
+        const { text, response } = await generateText({
             model: client(modelId),
-            messages,
+            messages: prunedMessages,
             maxOutputTokens: 4096,
         });
 
-        return response.text || defaultValue;
+        const prunedText = pruneReasoningFromResponseMessages(response.messages);
+        return prunedText || text || defaultValue;
     }
 
     async complete(

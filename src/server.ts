@@ -154,6 +154,10 @@ app.get("/api/prompts/export", (req, res) => {
             expected_schema: p.expectedSchema || null,
             evaluation_mode: p.evaluationMode || undefined,
             evaluation_criteria: p.evaluationCriteria || undefined,
+            optimizer_model_provider: p.optimizerModelProvider || undefined,
+            optimizer_model_id: p.optimizerModelId || undefined,
+            optimizer_max_iterations: p.optimizerMaxIterations ?? 0,
+            optimizer_score_threshold: p.optimizerScoreThreshold ?? undefined,
         }));
 
         res.json(exportData);
@@ -170,6 +174,10 @@ app.post("/api/prompts/import", validate(importPromptsSchema), (req, res) => {
             expected_schema?: string | null;
             evaluation_mode?: "llm" | "schema";
             evaluation_criteria?: string;
+            optimizer_model_provider?: string;
+            optimizer_model_id?: string;
+            optimizer_max_iterations?: number;
+            optimizer_score_threshold?: number | null;
         }>;
 
         const existingPrompts = getLatestPrompts();
@@ -191,7 +199,11 @@ app.post("/api/prompts/import", validate(importPromptsSchema), (req, res) => {
                 undefined,
                 promptData.expected_schema || undefined,
                 promptData.evaluation_mode,
-                promptData.evaluation_criteria
+                promptData.evaluation_criteria,
+                promptData.optimizer_model_provider,
+                promptData.optimizer_model_id,
+                promptData.optimizer_max_iterations,
+                promptData.optimizer_score_threshold ?? null
             );
             created.push({ name: prompt.name, id: prompt.id });
             existingNames.add(promptData.name.toLowerCase());
@@ -217,6 +229,10 @@ app.post("/api/prompts", validate(createPromptSchema), (req, res) => {
             expectedSchema,
             evaluationMode,
             evaluationCriteria,
+            optimizerModelProvider,
+            optimizerModelId,
+            optimizerMaxIterations,
+            optimizerScoreThreshold,
         } = req.body;
 
         const prompt = createPrompt(
@@ -225,7 +241,11 @@ app.post("/api/prompts", validate(createPromptSchema), (req, res) => {
             parentVersionId,
             expectedSchema,
             evaluationMode,
-            evaluationCriteria
+            evaluationCriteria,
+            optimizerModelProvider,
+            optimizerModelId,
+            optimizerMaxIterations,
+            optimizerScoreThreshold ?? null
         );
         res.json(prompt);
     } catch (error) {

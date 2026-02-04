@@ -1,8 +1,9 @@
-import { generateText, generateObject, jsonSchema } from "ai";
+import { generateText, jsonSchema, Output, type ModelMessage } from "ai";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError } from "../errors";
+import { pruneReasoningFromResponseMessages, pruneRequestMessages } from "./message-utils";
 
 interface DeepseekModel {
     id: string;
@@ -102,7 +103,7 @@ export class DeepseekClient implements LLMClient {
     }
 
     private async makeRequest(
-        messages: Array<{ role: "system" | "user"; content: string }>,
+        messages: ModelMessage[],
         temperature: number,
         modelId: string,
         outputSchema?: unknown,
@@ -113,25 +114,30 @@ export class DeepseekClient implements LLMClient {
             throw new ConfigurationError("Deepseek API key not configured");
         }
 
+        const prunedMessages = pruneRequestMessages(messages);
+
         if (outputSchema) {
-            const response = await generateObject({
+            const { output } = await generateText({
                 model: client(modelId),
-                messages,
+                messages: prunedMessages,
                 temperature,
-                schema: jsonSchema(outputSchema as Record<string, unknown>),
+                output: Output.object({
+                    schema: jsonSchema(outputSchema as Record<string, unknown>),
+                }),
                 maxOutputTokens: 4096,
             });
-            return (response.object ?? {}) as Record<string, unknown> | Array<unknown>;
+            return (output ?? {}) as Record<string, unknown> | Array<unknown>;
         }
 
-        const response = await generateText({
+        const { text, response } = await generateText({
             model: client(modelId),
-            messages,
+            messages: prunedMessages,
             temperature,
             maxOutputTokens: 4096,
         });
 
-        return response.text || defaultValue;
+        const prunedText = pruneReasoningFromResponseMessages(response.messages);
+        return prunedText || text || defaultValue;
     }
 
     private mockComplete(userMessage: string): string {

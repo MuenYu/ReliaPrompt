@@ -48,6 +48,10 @@ export async function createPrompt(data: {
     expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
+    optimizerModelProvider?: string;
+    optimizerModelId?: string;
+    optimizerMaxIterations?: number;
+    optimizerScoreThreshold?: number | null;
     parentVersionId?: number;
 }): Promise<Prompt> {
     return fetchJSON<Prompt>("/api/prompts", {
@@ -69,7 +73,17 @@ export async function exportPrompts(): Promise<Prompt[]> {
 }
 
 export async function importPrompts(
-    prompts: Array<{ name: string; content: string; expected_schema?: string }>
+    prompts: Array<{
+        name: string;
+        content: string;
+        expected_schema?: string;
+        evaluation_mode?: "llm" | "schema";
+        evaluation_criteria?: string;
+        optimizer_model_provider?: string;
+        optimizer_model_id?: string;
+        optimizer_max_iterations?: number;
+        optimizer_score_threshold?: number | null;
+    }>
 ): Promise<{ created: number; skipped: number }> {
     return fetchJSON<{ created: number; skipped: number }>("/api/prompts/import", {
         method: "POST",

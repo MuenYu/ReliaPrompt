@@ -16,6 +16,7 @@ export type {
     LLMResult,
     DurationStats,
     TestCaseResult,
+    OptimizationRound,
     TestRun,
     StartTestRunRequest,
     StartTestRunResponse,

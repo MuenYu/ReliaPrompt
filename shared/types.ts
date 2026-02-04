@@ -17,6 +17,10 @@ export interface Prompt {
     expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema" | null;
     evaluationCriteria?: string | null;
+    optimizerModelProvider?: string | null;
+    optimizerModelId?: string | null;
+    optimizerMaxIterations?: number | null;
+    optimizerScoreThreshold?: number | null;
     createdAt: string;
 }
 
@@ -33,6 +37,10 @@ export interface CreatePromptRequest {
     expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
+    optimizerModelProvider?: string;
+    optimizerModelId?: string;
+    optimizerMaxIterations?: number;
+    optimizerScoreThreshold?: number | null;
 }
 
 export interface CreateVersionRequest {
@@ -40,6 +48,10 @@ export interface CreateVersionRequest {
     expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
+    optimizerModelProvider?: string;
+    optimizerModelId?: string;
+    optimizerMaxIterations?: number;
+    optimizerScoreThreshold?: number | null;
 }
 
 // ============================================
@@ -135,6 +147,20 @@ export interface TestCaseResult {
     runs: TestRun[];
 }
 
+export interface OptimizationRound {
+    iteration: number;
+    source: "initial" | "optimizer";
+    score: number;
+    isCorrect: boolean;
+    actualOutput?: unknown;
+    evaluationReason?: string;
+    error?: string;
+    durationMs?: number;
+    expectedFound?: number;
+    expectedTotal?: number;
+    unexpectedFound?: number;
+}
+
 export interface TestRun {
     score: number;
     isCorrect: boolean;
@@ -145,6 +171,7 @@ export interface TestRun {
     expectedFound?: number;
     expectedTotal?: number;
     unexpectedFound?: number;
+    optimizationRounds?: OptimizationRound[];
 }
 
 export interface StartTestRunRequest {
@@ -176,6 +203,10 @@ export interface ExportPromptData {
     expectedSchema?: string;
     evaluation_mode?: "llm" | "schema";
     evaluation_criteria?: string;
+    optimizer_model_provider?: string;
+    optimizer_model_id?: string;
+    optimizer_max_iterations?: number;
+    optimizer_score_threshold?: number | null;
 }
 
 export interface ExportTestCaseData {

@@ -82,6 +82,18 @@ function hasText(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+function getOptimizerRunner(provider?: string | null, modelId?: string | null): ModelRunner | null {
+    if (!hasText(provider) || !hasText(modelId)) return null;
+    const clients = getConfiguredClients();
+    const client = clients.find((c) => c.name === provider);
+    if (!client) return null;
+    return {
+        client,
+        modelId,
+        displayName: `${provider} (${modelId})`,
+    };
+}
+
 function getSkippedEvaluationResult(): EvaluationResult {
     return {
         isCorrect: true,
@@ -533,8 +545,14 @@ export interface BaseTestResult {
     durationMs?: number;
 }
 
+export interface OptimizationRound extends BaseTestResult {
+    iteration: number;
+    source: "initial" | "optimizer";
+}
+
 export interface RunResult extends BaseTestResult {
     runNumber: number;
+    optimizationRounds?: OptimizationRound[];
 }
 
 function serializeOutput(output: unknown): string | null {
@@ -675,6 +693,17 @@ export async function runTests(
             : normalizeEvaluationMode(prompt.evaluationMode ?? undefined);
     const evaluationCriteria =
         typeof prompt === "string" ? null : (prompt.evaluationCriteria ?? null);
+    const optimizerRunner =
+        typeof prompt === "string"
+            ? null
+            : getOptimizerRunner(
+                  prompt.optimizerModelProvider ?? null,
+                  prompt.optimizerModelId ?? null
+              );
+    const optimizerMaxIterations =
+        typeof prompt === "string" ? 0 : Math.max(0, prompt.optimizerMaxIterations ?? 0);
+    const optimizerScoreThreshold =
+        typeof prompt === "string" ? null : (prompt.optimizerScoreThreshold ?? null);
 
     // If expectedSchema not passed explicitly, try to get from prompt object
     const schemaString =
@@ -722,7 +751,10 @@ export async function runTests(
 
             for (let runNumber = 1; runNumber <= runsPerTest; runNumber++) {
                 try {
-                    const startTime = Date.now();
+                    const optimizationRounds: OptimizationRound[] = [];
+                    let totalDurationMs = 0;
+
+                    const initialStartTime = Date.now();
                     // System prompt includes schema hint if present
                     const actualOutput = await runner.client.complete(
                         systemPrompt,
@@ -731,8 +763,8 @@ export async function runTests(
                         outputSchema
                     );
                     const normalizedOutput = actualOutput === undefined ? null : actualOutput;
-                    const serializedOutput = serializeOutput(normalizedOutput);
-                    const durationMs = Date.now() - startTime;
+                    const initialDurationMs = Date.now() - initialStartTime;
+                    totalDurationMs += initialDurationMs;
 
                     const evaluationResult = await evaluateOutput({
                         evaluationMode,
@@ -743,44 +775,155 @@ export async function runTests(
                         output: normalizedOutput,
                     });
 
-                    const isCorrect = evaluationResult.isCorrect;
-                    if (isCorrect) {
-                        correctRuns++;
-                        llmCorrectCount++;
-                    }
-                    totalScore += evaluationResult.score;
-                    llmTotalRuns++;
-
-                    runs.push({
-                        runNumber,
+                    optimizationRounds.push({
+                        iteration: 0,
+                        source: "initial",
                         actualOutput: normalizedOutput,
-                        isCorrect,
+                        isCorrect: evaluationResult.isCorrect,
                         score: evaluationResult.score,
                         expectedFound: evaluationResult.expectedFound,
                         expectedTotal: evaluationResult.expectedTotal,
                         unexpectedFound: evaluationResult.unexpectedFound,
                         evaluationReason: evaluationResult.evaluationReason,
                         error: evaluationResult.error,
-                        durationMs,
+                        durationMs: initialDurationMs,
                     });
 
-                    // Persist to database if jobId is provided
+                    // Persist initial result to database if jobId is provided
                     if (jobId) {
                         createTestResult(
                             jobId,
                             testCase.id,
                             runner.displayName,
                             runNumber,
-                            serializedOutput,
-                            isCorrect,
+                            serializeOutput(normalizedOutput),
+                            evaluationResult.isCorrect,
                             evaluationResult.score,
                             evaluationResult.expectedFound,
                             evaluationResult.expectedTotal,
                             evaluationResult.unexpectedFound,
                             evaluationResult.evaluationReason ?? null,
-                            durationMs
+                            initialDurationMs,
+                            0
                         );
                     }
+
+                    let latestOutput = normalizedOutput;
+                    let latestEvaluation = evaluationResult;
+
+                    const canOptimize =
+                        evaluationMode === "llm" &&
+                        hasText(evaluationCriteria) &&
+                        optimizerRunner !== null &&
+                        optimizerMaxIterations > 0 &&
+                        !latestEvaluation.error;
+
+                    if (canOptimize) {
+                        const criteriaText = evaluationCriteria!.trim();
+
+                        for (let iteration = 1; iteration <= optimizerMaxIterations; iteration++) {
+                            if (latestEvaluation.score >= 1) break;
+                            if (
+                                optimizerScoreThreshold !== null &&
+                                optimizerScoreThreshold !== undefined &&
+                                latestEvaluation.score >= optimizerScoreThreshold
+                            ) {
+                                break;
+                            }
+
+                            const optimizerSystemPrompt =
+                                "You are an optimizer. Improve the model output to better satisfy the evaluation criteria. " +
+                                "Use the evaluation feedback. Return only the revised output.";
+                            const optimizerUserMessage =
+                                `System prompt:\n${systemPrompt}\n\n` +
+                                `User input:\n${testCase.input}\n\n` +
+                                `Latest output:\n${formatOutputForEvaluation(latestOutput)}\n\n` +
+                                `Latest evaluation:\nScore: ${latestEvaluation.score}\nReason: ${latestEvaluation.evaluationReason ?? "N/A"}\n\n` +
+                                `Evaluation criteria:\n${criteriaText}\n`;
+
+                            const optimizerStartTime = Date.now();
+                            const optimizedOutput = await optimizerRunner.client.complete(
+                                optimizerSystemPrompt,
+                                optimizerUserMessage,
+                                optimizerRunner.modelId,
+                                outputSchema
+                            );
+                            const normalizedOptimizedOutput =
+                                optimizedOutput === undefined ? null : optimizedOutput;
+                            const optimizerDurationMs = Date.now() - optimizerStartTime;
+                            totalDurationMs += optimizerDurationMs;
+
+                            const optimizedEvaluation = await evaluateOutput({
+                                evaluationMode,
+                                evaluationCriteria,
+                                evaluationSchema: testCase.evaluationSchema ?? null,
+                                systemPrompt,
+                                input: testCase.input,
+                                output: normalizedOptimizedOutput,
+                            });
+
+                            optimizationRounds.push({
+                                iteration,
+                                source: "optimizer",
+                                actualOutput: normalizedOptimizedOutput,
+                                isCorrect: optimizedEvaluation.isCorrect,
+                                score: optimizedEvaluation.score,
+                                expectedFound: optimizedEvaluation.expectedFound,
+                                expectedTotal: optimizedEvaluation.expectedTotal,
+                                unexpectedFound: optimizedEvaluation.unexpectedFound,
+                                evaluationReason: optimizedEvaluation.evaluationReason,
+                                error: optimizedEvaluation.error,
+                                durationMs: optimizerDurationMs,
+                            });
+
+                            if (jobId) {
+                                createTestResult(
+                                    jobId,
+                                    testCase.id,
+                                    runner.displayName,
+                                    runNumber,
+                                    serializeOutput(normalizedOptimizedOutput),
+                                    optimizedEvaluation.isCorrect,
+                                    optimizedEvaluation.score,
+                                    optimizedEvaluation.expectedFound,
+                                    optimizedEvaluation.expectedTotal,
+                                    optimizedEvaluation.unexpectedFound,
+                                    optimizedEvaluation.evaluationReason ?? null,
+                                    optimizerDurationMs,
+                                    iteration
+                                );
+                            }
+
+                            latestOutput = normalizedOptimizedOutput;
+                            latestEvaluation = optimizedEvaluation;
+
+                            if (latestEvaluation.error) {
+                                break;
+                            }
+                        }
+                    }
+
+                    const isCorrect = latestEvaluation.isCorrect;
+                    if (isCorrect) {
+                        correctRuns++;
+                        llmCorrectCount++;
+                    }
+                    totalScore += latestEvaluation.score;
+                    llmTotalRuns++;
+
+                    runs.push({
+                        runNumber,
+                        actualOutput: latestOutput,
+                        isCorrect,
+                        score: latestEvaluation.score,
+                        expectedFound: latestEvaluation.expectedFound,
+                        expectedTotal: latestEvaluation.expectedTotal,
+                        unexpectedFound: latestEvaluation.unexpectedFound,
+                        evaluationReason: latestEvaluation.evaluationReason,
+                        error: latestEvaluation.error,
+                        durationMs: totalDurationMs,
+                        optimizationRounds,
+                    });
                 } catch (error) {
                     llmTotalRuns++;
                     const errorMessage = getErrorMessage(error);
@@ -809,7 +952,9 @@ export async function runTests(
                             0,
                             0,
                             0,
-                            errorMessage
+                            errorMessage,
+                            undefined,
+                            0
                         );
                     }
                 }
@@ -1009,6 +1154,7 @@ export function runResultToDbTestResult(
         expectedFound: runResult.expectedFound,
         expectedTotal: runResult.expectedTotal,
         unexpectedFound: runResult.unexpectedFound,
+        optimizationIteration: 0,
         evaluationReason: runResult.evaluationReason ?? null,
         error: runResult.error ?? null,
         durationMs: runResult.durationMs ?? null,

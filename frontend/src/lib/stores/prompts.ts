@@ -135,6 +135,10 @@ export async function createPrompt(data: {
     expectedSchema?: string | null;
     evaluationMode?: "llm" | "schema";
     evaluationCriteria?: string;
+    optimizerModelProvider?: string;
+    optimizerModelId?: string;
+    optimizerMaxIterations?: number;
+    optimizerScoreThreshold?: number | null;
 }): Promise<Prompt | null> {
     try {
         const prompt = await api.createPrompt(data);
@@ -155,7 +159,11 @@ export async function createPromptVersion(
     content: string,
     expectedSchema?: string | null,
     evaluationMode?: "llm" | "schema",
-    evaluationCriteria?: string
+    evaluationCriteria?: string,
+    optimizerModelProvider?: string,
+    optimizerModelId?: string,
+    optimizerMaxIterations?: number,
+    optimizerScoreThreshold?: number | null
 ): Promise<Prompt | null> {
     try {
         const prompt = await api.createPrompt({
@@ -164,6 +172,10 @@ export async function createPromptVersion(
             expectedSchema,
             evaluationMode,
             evaluationCriteria,
+            optimizerModelProvider,
+            optimizerModelId,
+            optimizerMaxIterations,
+            optimizerScoreThreshold,
             parentVersionId: parentId,
         });
 

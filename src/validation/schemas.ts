@@ -28,6 +28,16 @@ const optionalJsonStringSchema = (invalidMessage: string, allowNull = false) => 
     }, baseSchema);
 };
 
+const optionalNumberSchema = (schema: z.ZodTypeAny, allowNull = false) => {
+    const baseSchema = allowNull ? schema.nullable().optional() : schema.optional();
+    return z.preprocess((value) => {
+        if (value === undefined) return undefined;
+        if (allowNull && value === null) return null;
+        if (typeof value === "string" && value.trim() === "") return undefined;
+        return value;
+    }, baseSchema);
+};
+
 // Common schemas
 export const idParamSchema = z
     .object({
@@ -81,6 +91,18 @@ export const createPromptSchema = z
         expectedSchema: optionalJsonStringSchema("Output structure must be valid JSON", true),
         evaluationMode: z.enum(["llm", "schema"]).optional(),
         evaluationCriteria: z.string().trim().optional(),
+        optimizerModelProvider: z.string().trim().optional(),
+        optimizerModelId: z.string().trim().optional(),
+        optimizerMaxIterations: optionalNumberSchema(
+            z.coerce.number().int().min(0, { message: "optimizerMaxIterations must be at least 0" })
+        ),
+        optimizerScoreThreshold: optionalNumberSchema(
+            z.coerce
+                .number()
+                .min(0, { message: "optimizerScoreThreshold must be at least 0" })
+                .max(1, { message: "optimizerScoreThreshold must be at most 1" }),
+            true
+        ),
         parentVersionId: z.coerce.number().int().positive().optional(),
     })
     .strict();
@@ -134,6 +156,21 @@ const importPromptItemSchema = z
         expected_schema: optionalJsonStringSchema("expected_schema must be valid JSON", true),
         evaluation_mode: z.enum(["llm", "schema"]).optional(),
         evaluation_criteria: z.string().trim().optional(),
+        optimizer_model_provider: z.string().trim().optional(),
+        optimizer_model_id: z.string().trim().optional(),
+        optimizer_max_iterations: optionalNumberSchema(
+            z.coerce
+                .number()
+                .int()
+                .min(0, { message: "optimizer_max_iterations must be at least 0" })
+        ),
+        optimizer_score_threshold: optionalNumberSchema(
+            z.coerce
+                .number()
+                .min(0, { message: "optimizer_score_threshold must be at least 0" })
+                .max(1, { message: "optimizer_score_threshold must be at most 1" }),
+            true
+        ),
     })
     .strict();
 

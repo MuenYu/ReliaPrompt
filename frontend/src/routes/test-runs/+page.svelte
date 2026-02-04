@@ -6,7 +6,7 @@
     import ModelSelector from "$lib/components/ModelSelector.svelte";
     import ScoreBadge from "$lib/components/ScoreBadge.svelte";
     import Modal from "$lib/components/Modal.svelte";
-    import type { TestJob, TestResults, LLMResult, SelectedModel } from "$lib/types";
+    import type { TestJob, TestResults, LLMResult, SelectedModel, OptimizationRound } from "$lib/types";
     import * as api from "$lib/api";
     import { onMount } from "svelte";
 
@@ -188,6 +188,15 @@
 
     function formatOutput(value: unknown): string {
         return formatJSON(value);
+    }
+
+    function formatRoundLabel(round: OptimizationRound): string {
+        return round.source === "initial" ? "Initial" : `Optimizer #${round.iteration}`;
+    }
+
+    function getOptimizerRoundCount(run: { optimizationRounds?: OptimizationRound[] }): number {
+        if (!run.optimizationRounds || run.optimizationRounds.length === 0) return 0;
+        return Math.max(0, run.optimizationRounds.length - 1);
     }
 
     function getSampleOutput(runs: Array<{ actualOutput?: unknown; error?: string }>): string {
@@ -429,10 +438,10 @@
                                 {@const icon = run.isCorrect ? "✓" : runScore >= 80 ? "◐" : "✗"}
                                 <div
                                     style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; background: {bgColor}; font-size: 12px;"
-                                    title="Run #{runIdx + 1}: {runScore}%{run.durationMs !== undefined ? ', ' + formatDuration(run.durationMs) : ''}"
+                                    title="Run #{runIdx + 1}: {runScore}%{run.durationMs !== undefined ? ', ' + formatDuration(run.durationMs) : ''}{getOptimizerRoundCount(run) > 0 ? ', optimizer rounds: ' + getOptimizerRoundCount(run) : ''}"
                                 >
                                     <span style="color: {textColor}; font-weight: bold;">{icon}</span>
-                                    <span style="color: {textColor};">{runScore}%{run.durationMs !== undefined ? ` · ${formatDuration(run.durationMs)}` : ""}</span>
+                                    <span style="color: {textColor};">{runScore}%{run.durationMs !== undefined ? ` · ${formatDuration(run.durationMs)}` : ""}{getOptimizerRoundCount(run) > 0 ? ` · Opt: ${getOptimizerRoundCount(run)}` : ""}</span>
                                 </div>
                             {/each}
                         </div>
@@ -452,6 +461,9 @@
                                     {#if run.durationMs !== undefined}
                                         <span class="duration-badge" style="font-size: 11px; opacity: 0.8;">⏱ {formatDuration(run.durationMs)}</span>
                                     {/if}
+                                    {#if getOptimizerRoundCount(run) > 0}
+                                        <span class="duration-badge" style="font-size: 11px; opacity: 0.8;">Opt rounds: {getOptimizerRoundCount(run)}</span>
+                                    {/if}
                                 </div>
                                 <div style="margin-top: 6px;">
                                     <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Actual Output:</div>
@@ -465,6 +477,34 @@
                                         {run.evaluationReason ?? (run.error ? `Error: ${run.error}` : "N/A")}
                                     </div>
                                 </div>
+                                {#if run.optimizationRounds && run.optimizationRounds.length > 1}
+                                    <div style="margin-top: 10px;">
+                                        <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 6px;">Optimization Rounds:</div>
+                                        {#each run.optimizationRounds as round}
+                                            <div style="background: var(--color-bg); padding: 8px 10px; border-radius: 6px; margin-bottom: 8px;">
+                                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
+                                                    <span style="font-weight: 500;">{formatRoundLabel(round)}</span>
+                                                    <ScoreBadge score={round.score} />
+                                                    {#if round.durationMs !== undefined}
+                                                        <span class="duration-badge" style="font-size: 11px; opacity: 0.8;">⏱ {formatDuration(round.durationMs)}</span>
+                                                    {/if}
+                                                </div>
+                                                <div style="margin-top: 6px;">
+                                                    <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Output:</div>
+                                                    <div class="json-preview" style="font-size: 13px; max-height: 120px; overflow-y: auto;">
+                                                        {formatOutput(round.actualOutput ?? (round.error ? `Error: ${round.error}` : "N/A"))}
+                                                    </div>
+                                                </div>
+                                                <div style="margin-top: 8px;">
+                                                    <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Evaluation:</div>
+                                                    <div class="json-preview" style="font-size: 13px; max-height: 100px; overflow-y: auto;">
+                                                        {round.evaluationReason ?? (round.error ? `Error: ${round.error}` : "N/A")}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {/each}
+                                    </div>
+                                {/if}
                             </div>
                         {/each}
                     </div>

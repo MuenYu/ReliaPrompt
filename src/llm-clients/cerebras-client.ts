@@ -1,6 +1,8 @@
+import { type ModelMessage } from "ai";
 import { LLMClient, ModelInfo } from "./llm-client";
 import { getConfig } from "../database";
 import { ConfigurationError, LLMError } from "../errors";
+import { pruneReasoningFromResponseMessages, pruneRequestMessages } from "./message-utils";
 
 interface CerebrasModel {
     id: string;
@@ -60,7 +62,7 @@ export class CerebrasClient implements LLMClient {
     }
 
     private async makeRequest(
-        messages: Array<{ role: "system" | "user"; content: string }>,
+        messages: ModelMessage[],
         temperature: number,
         modelId: string,
         outputSchema?: unknown,
@@ -71,9 +73,11 @@ export class CerebrasClient implements LLMClient {
             throw new ConfigurationError("Cerebras API key not configured");
         }
 
+        const prunedMessages = pruneRequestMessages(messages);
+
         const requestBody: Record<string, unknown> = {
             model: modelId,
-            messages,
+            messages: prunedMessages,
             temperature,
             max_tokens: 4096,
         };
@@ -99,11 +103,15 @@ export class CerebrasClient implements LLMClient {
             choices?: Array<{ message?: { content?: string } }>;
         };
         const content = data.choices?.[0]?.message?.content ?? defaultValue;
+        const prunedText = pruneReasoningFromResponseMessages([
+            { role: "assistant", content: content ?? "" },
+        ]);
+        const sanitizedContent = prunedText || content || defaultValue;
         if (!outputSchema) {
-            return content;
+            return sanitizedContent;
         }
         try {
-            return JSON.parse(content) as Record<string, unknown> | Array<unknown>;
+            return JSON.parse(sanitizedContent) as Record<string, unknown> | Array<unknown>;
         } catch {
             throw new LLMError("Cerebras", "Failed to parse JSON response");
         }
