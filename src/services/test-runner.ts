@@ -337,15 +337,32 @@ async function evaluateWithLLM(options: {
         };
     }
 
-    const evaluationPrompt =
-        "You are a strict evaluator. Score the model output against the criteria. " +
-        "Return only JSON with keys score (0 to 1) and reason (<= 100 words).";
+    const evaluationPrompt = `
+    You are a strict evaluator who scores the model output quality against context and criteria whilst providing a reason for the score. 
+    Return only JSON with keys score (0 to 1) and reason (<= 100 words, in English unless otherwise specified). 
 
-    const evaluationUserMessage =
-        `System prompt:\n${options.systemPrompt}\n\n` +
-        `User input:\n${options.input}\n\n` +
-        `Model output:\n${formatOutputForEvaluation(options.output)}\n\n` +
-        `Evaluation criteria:\n${options.evaluationCriteria}\n`;
+    Context:
+    \`\`\`
+    ${options.systemPrompt}
+    \`\`\`
+
+    Evaluation criteria:
+    \`\`\`
+    ${options.evaluationCriteria}
+    \`\`\`
+    `;
+
+    const evaluationUserMessage = `
+    User Input:
+    \`\`\`
+    ${options.input}
+    \`\`\`
+
+    Model Output:
+    \`\`\`
+    ${formatOutputForEvaluation(options.output)}
+    \`\`\`
+    `
 
     const outputSchema = {
         type: "object",
