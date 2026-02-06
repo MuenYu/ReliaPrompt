@@ -20,10 +20,18 @@
         }
     }
 
-    function handleOverlayClick(e: MouseEvent) {
-        if (e.target === e.currentTarget) {
+    let mouseDownTarget: EventTarget | null = null;
+
+    function handleOverlayMouseDown(e: MouseEvent) {
+        mouseDownTarget = e.target;
+    }
+
+    function handleOverlayMouseUp(e: MouseEvent) {
+        // Only close if both mousedown and mouseup happened directly on the overlay
+        if (e.target === e.currentTarget && mouseDownTarget === e.currentTarget) {
             onclose();
         }
+        mouseDownTarget = null;
     }
 
     onMount(() => {
@@ -34,7 +42,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div {id} class="modal-overlay" class:active={open} onclick={handleOverlayClick}>
+<div {id} class="modal-overlay" class:active={open} onmousedown={handleOverlayMouseDown} onmouseup={handleOverlayMouseUp}>
     <div class="modal" class:modal-wide={wide}>
         <div class="modal-header">
             <div class="modal-title-group">
