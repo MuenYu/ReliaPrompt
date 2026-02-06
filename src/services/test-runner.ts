@@ -10,6 +10,7 @@ import {
     TestResult as DbTestResult,
 } from "../database";
 import { getConfiguredClients, ModelSelection, LLMClient } from "../llm-clients";
+import { openaiClient } from "../llm-clients/openai-client";
 import { compare } from "../utils/compare";
 import { parse, ParseType } from "../utils/parse";
 import { ConfigurationError, getErrorMessage, requireEntity } from "../errors";
@@ -76,6 +77,7 @@ export interface BaseTestResult {
     unexpectedFound: number;
     error?: string;
     durationMs?: number;
+    reason?: string; // LLM evaluation reason (when using LLM evaluation mode)
 }
 
 export interface RunResult extends BaseTestResult {
@@ -86,6 +88,63 @@ const activeJobs = new Map<string, TestProgress>();
 
 export function getTestProgress(jobId: string): TestProgress | null {
     return activeJobs.get(jobId) ?? null;
+}
+
+/**
+ * Calls OpenAI GPT-5.2 judge to evaluate an AI output based on evaluation criteria.
+ * Returns a score (0-1) and a reason string.
+ */
+async function evaluateWithLLMJudge(
+    promptContent: string,
+    testCaseInput: string,
+    actualOutput: string,
+    evaluationCriteria: string
+): Promise<{ score: number; reason: string }> {
+    if (!openaiClient.isConfigured()) {
+        throw new ConfigurationError(
+            "OpenAI API key is required for LLM evaluation mode. Please configure it in settings."
+        );
+    }
+
+    const judgePrompt = `You are an expert evaluator. Your task is to evaluate the quality of an AI-generated output based on specific criteria.
+
+## Original Prompt:
+${promptContent}
+
+## User Input:
+${testCaseInput}
+
+## Evaluation Criteria:
+${evaluationCriteria}
+
+Evaluate the AI output based on the criteria above. Return your evaluation as a JSON object with exactly two fields:
+- "score": A number between 0 and 1 indicating the quality (0 = poor, 1 = excellent)
+- "reason": A string explaining your score and what could be improved
+
+Return ONLY valid JSON, no other text. Example format:
+{"score": 0.85, "reason": "The output is mostly correct but lacks some detail in..."}`;
+
+    try {
+        const judgeResponse = await openaiClient.complete(judgePrompt, actualOutput, "gpt-5.2");
+        const parsed = JSON.parse(judgeResponse.trim());
+
+        // Validate and clamp score
+        let score = typeof parsed.score === "number" ? parsed.score : parseFloat(parsed.score);
+        if (isNaN(score)) {
+            score = 0;
+        }
+        score = Math.max(0, Math.min(1, score)); // Clamp to [0, 1]
+
+        const reason = typeof parsed.reason === "string" ? parsed.reason : "No reason provided";
+
+        return { score, reason };
+    } catch (error) {
+        // If parsing fails, return a low score with error message
+        return {
+            score: 0,
+            reason: `Failed to parse judge response: ${getErrorMessage(error)}`,
+        };
+    }
 }
 
 async function handleTestRun(
@@ -199,6 +258,11 @@ export async function runTests(
     // Extract prompt content and ID
     const promptContent = typeof prompt === "string" ? prompt : prompt.content;
     const promptId = typeof prompt === "string" ? undefined : prompt.id;
+    const promptObj = typeof prompt === "object" ? prompt : null;
+
+    // Get evaluation mode and criteria if prompt is an object
+    const evaluationMode = promptObj?.evaluationMode || "schema";
+    const evaluationCriteria = promptObj?.evaluationCriteria || null;
 
     // If expectedSchema not passed explicitly, try to get from prompt object
     const schemaString =
@@ -258,28 +322,65 @@ export async function runTests(
                         runner.modelId
                     );
                     const durationMs = Date.now() - startTime;
-                    const expectedOutputType = testCase.expectedOutputType as ParseType;
-                    const expectedParsed = parse(testCase.expectedOutput, expectedOutputType);
-                    const actualParsed = parse(actualOutput, expectedOutputType);
-                    const comparison = compare(expectedParsed, actualParsed, expectedOutputType);
 
-                    const isCorrect = comparison.score === 1;
+                    let score = 0;
+                    let isCorrect = false;
+                    let expectedFound = 0;
+                    let expectedTotal = 0;
+                    let unexpectedFound = 0;
+                    let reason: string | undefined = undefined;
+
+                    if (evaluationMode === "llm" && evaluationCriteria) {
+                        // LLM evaluation mode: use judge model
+                        const evaluation = await evaluateWithLLMJudge(
+                            promptContent,
+                            testCase.input,
+                            actualOutput,
+                            evaluationCriteria
+                        );
+                        score = evaluation.score;
+                        reason = evaluation.reason;
+                        isCorrect = score === 1;
+                        // For LLM evaluation, we don't have expectedFound/expectedTotal/unexpectedFound
+                        // Set defaults that make sense
+                        expectedTotal = 1;
+                        expectedFound = score === 1 ? 1 : 0;
+                        unexpectedFound = 0;
+                    } else {
+                        // Schema evaluation mode: use existing comparison logic
+                        const expectedOutputType = testCase.expectedOutputType as ParseType;
+                        const expectedParsed = parse(testCase.expectedOutput, expectedOutputType);
+                        const actualParsed = parse(actualOutput, expectedOutputType);
+                        const comparison = compare(
+                            expectedParsed,
+                            actualParsed,
+                            expectedOutputType
+                        );
+
+                        score = comparison.score;
+                        isCorrect = comparison.score === 1;
+                        expectedFound = comparison.expectedFound;
+                        expectedTotal = comparison.expectedTotal;
+                        unexpectedFound = comparison.unexpectedFound;
+                    }
+
                     if (isCorrect) {
                         correctRuns++;
                         llmCorrectCount++;
                     }
-                    totalScore += comparison.score;
+                    totalScore += score;
                     llmTotalRuns++;
 
                     runs.push({
                         runNumber,
                         actualOutput,
                         isCorrect,
-                        score: comparison.score,
-                        expectedFound: comparison.expectedFound,
-                        expectedTotal: comparison.expectedTotal,
-                        unexpectedFound: comparison.unexpectedFound,
+                        score,
+                        expectedFound,
+                        expectedTotal,
+                        unexpectedFound,
                         durationMs,
+                        reason,
                     });
 
                     // Persist to database if jobId is provided
@@ -291,10 +392,10 @@ export async function runTests(
                             runNumber,
                             actualOutput,
                             isCorrect,
-                            comparison.score,
-                            comparison.expectedFound,
-                            comparison.expectedTotal,
-                            comparison.unexpectedFound,
+                            score,
+                            expectedFound,
+                            expectedTotal,
+                            unexpectedFound,
                             durationMs
                         );
                     }

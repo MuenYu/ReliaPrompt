@@ -380,8 +380,14 @@
                 </div>
                 <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Input:</strong></div>
                 <div class="json-preview">{tc.input.substring(0, 200)}{tc.input.length > 200 ? "..." : ""}</div>
-                <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
-                <div class="json-preview">{formatJSON(tc.expectedOutput)}</div>
+                {#if $selectedPrompt?.evaluationMode === "llm"}
+                    {@const firstRun = tc.runs && tc.runs.length > 0 ? tc.runs[0] : null}
+                    <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Model Output:</strong></div>
+                    <div class="json-preview">{firstRun?.actualOutput ? formatJSON(firstRun.actualOutput) : (firstRun?.error ? `Error: ${firstRun.error}` : "N/A")}</div>
+                {:else}
+                    <div style="margin-top: 10px; margin-bottom: 5px;"><strong>Expected:</strong></div>
+                    <div class="json-preview">{formatJSON(tc.expectedOutput)}</div>
+                {/if}
 
                 {#if !showAllRuns && tc.runs && tc.runs.length > 0}
                     <div style="margin-top: 12px;">
@@ -423,6 +429,14 @@
                                     <div class="json-preview" style="font-size: 13px; max-height: 150px; overflow-y: auto;">
                                         {run.actualOutput || (run.error ? `Error: ${run.error}` : "N/A")}
                                     </div>
+                                    {#if run.reason}
+                                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--color-border);">
+                                            <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px; font-weight: 500;">Evaluation Reason:</div>
+                                            <div style="font-size: 13px; color: var(--color-text); line-height: 1.5;">
+                                                {run.reason}
+                                            </div>
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
                         {/each}
