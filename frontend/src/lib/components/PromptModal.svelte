@@ -117,7 +117,7 @@
     );
 </script>
 
-<Modal id="new-prompt-modal" {open} {title} wide={mode === "view"} onclose={onclose}>
+<Modal id="new-prompt-modal" {open} {title} onclose={onclose}>
     {#snippet titleBadge()}
         {#if mode !== "new" && (promptVersion || loadedPrompt?.version)}
             <span class="badge badge-version">v{promptVersion || loadedPrompt?.version}</span>

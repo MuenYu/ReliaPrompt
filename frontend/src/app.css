@@ -860,10 +860,12 @@ button.small,
     background: var(--color-card);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    width: 100%;
-    max-width: 560px;
-    max-height: 90vh;
-    overflow-y: auto;
+    width: 30vw;
+    min-width: 480px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     transform: none;
     transition: none;
 }
@@ -873,7 +875,8 @@ button.small,
 }
 
 .modal.modal-wide {
-    max-width: 720px;
+    width: 30vw;
+    min-width: 480px;
 }
 
 .modal-title-group {
@@ -891,10 +894,10 @@ button.small,
     font-size: 13px;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 400px;
     overflow-y: auto;
     margin: 0;
     line-height: 1.6;
+    flex: 1;
 }
 
 .modal-header {
@@ -933,6 +936,8 @@ button.small,
 
 .modal-body {
     padding: 24px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .modal-footer {
