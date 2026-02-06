@@ -143,7 +143,7 @@ describe("compare", () => {
         });
 
         test("should return zero score for non-array output", () => {
-            const result = compare([1, 2, 3], "not an array" as any, ParseType.ARRAY);
+            const result = compare([1, 2, 3], "not an array", ParseType.ARRAY);
             expect(result).toEqual({
                 score: 0,
                 expectedTotal: 3,
@@ -181,6 +181,26 @@ describe("compare", () => {
                 [
                     [1, 2],
                     [3, 4],
+                ],
+                ParseType.ARRAY
+            );
+            expect(result).toEqual({
+                score: 1,
+                expectedTotal: 2,
+                expectedFound: 2,
+                unexpectedFound: 0,
+            });
+        });
+
+        test("should return perfect score for array of arrays with different order", () => {
+            const result = compare(
+                [
+                    [1, 2],
+                    [3, 4],
+                ],
+                [
+                    [3, 4],
+                    [2, 1],
                 ],
                 ParseType.ARRAY
             );
@@ -299,7 +319,7 @@ describe("compare", () => {
         });
 
         test("should return zero score for non-object output", () => {
-            const result = compare({ a: 1 }, "not an object" as any, ParseType.OBJECT);
+            const result = compare({ a: 1 }, "not an object", ParseType.OBJECT);
             expect(result).toEqual({
                 score: 0,
                 expectedTotal: 1,
@@ -344,6 +364,30 @@ describe("compare", () => {
 
         test("should handle objects with array values", () => {
             const result = compare({ items: [1, 2, 3] }, { items: [1, 2, 3] }, ParseType.OBJECT);
+            expect(result).toEqual({
+                score: 1,
+                expectedTotal: 1,
+                expectedFound: 1,
+                unexpectedFound: 0,
+            });
+        });
+
+        test("should return perfect score for object with array property in different order", () => {
+            const result = compare({ items: [1, 2, 3] }, { items: [3, 1, 2] }, ParseType.OBJECT);
+            expect(result).toEqual({
+                score: 1,
+                expectedTotal: 1,
+                expectedFound: 1,
+                unexpectedFound: 0,
+            });
+        });
+
+        test("should return perfect score for nested object with arrays in different order", () => {
+            const result = compare(
+                { data: { ids: [1, 2, 3] } },
+                { data: { ids: [3, 2, 1] } },
+                ParseType.OBJECT
+            );
             expect(result).toEqual({
                 score: 1,
                 expectedTotal: 1,
