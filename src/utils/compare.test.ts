@@ -143,7 +143,7 @@ describe("compare", () => {
         });
 
         test("should return zero score for non-array output", () => {
-            const result = compare([1, 2, 3], "not an array" as any, ParseType.ARRAY);
+            const result = compare([1, 2, 3], "not an array", ParseType.ARRAY);
             expect(result).toEqual({
                 score: 0,
                 expectedTotal: 3,
@@ -319,7 +319,7 @@ describe("compare", () => {
         });
 
         test("should return zero score for non-object output", () => {
-            const result = compare({ a: 1 }, "not an object" as any, ParseType.OBJECT);
+            const result = compare({ a: 1 }, "not an object", ParseType.OBJECT);
             expect(result).toEqual({
                 score: 0,
                 expectedTotal: 1,
